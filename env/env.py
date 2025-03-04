@@ -1,138 +1,176 @@
 import pygame
 import sys
+from colors import WHITE, BLACK, BLUE, RED, GREEN, GRAY  # Import colors
 
-# Initialize Pygame
-pygame.init()
-
-# Grid parameters
-rows = 15
-cols = 15
-cell_size = 40
-width = cols * cell_size
-height = rows * cell_size
-
-# Create the game window
-screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption("Robot Grid Simulation")
-
-# Define colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-BLUE = (0, 0, 255)
-RED = (255, 0, 0)
-GREEN = (0, 255, 0)
-GRAY = (200, 200, 200)
-
-# Define obstacles as a list of (row, col) tuples
-obstacles = [
-    (3, 3), (3, 4), (3, 5),
-    (7, 1), (7, 2), (7, 3),
-    (10, 10), (10, 11), (11, 10),
-    (5, 8), (6, 8), (7, 8)
-]
-
-# Define initial positions of robots and goal
-blue_robot = [0, 0]
-red_robot = [14, 14]
-goal = (7, 7)
-
-# Set up the frame rate
-clock = pygame.time.Clock()
-
-
-def is_valid_move(new_row, new_col):
+class RobotGridEnv:
     """
-    @brief Checks whether the new position is a valid move.
+    @brief Class representing a grid-based environment for two robots (Evader & Pursuer).
     
-    @param new_row The row index of the new position.
-    @param new_col The column index of the new position.
-    
-    @return True if the move is valid (within grid bounds and not an obstacle), False otherwise.
+    This class allows the Evader and Pursuer to move within a grid, avoiding obstacles.
+    A path planner can interact with the environment via method calls.
     """
-    if 0 <= new_row < rows and 0 <= new_col < cols:
-        if (new_row, new_col) not in obstacles:
-            return True
-    return False
+
+    def __init__(self, rows=15, cols=15, cell_size=40):
+        """
+        @brief Initializes the environment with customizable grid size.
+        
+        @param rows Number of rows in the grid (default: 15).
+        @param cols Number of columns in the grid (default: 15).
+        @param cell_size Size of each cell in pixels (default: 40).
+        """
+        pygame.init()
+        
+        # Grid parameters
+        self.rows = rows
+        self.cols = cols
+        self.cell_size = cell_size
+        self.width = self.cols * self.cell_size
+        self.height = self.rows * self.cell_size
+        
+        # Create game window
+        self.screen = pygame.display.set_mode((self.width, self.height))
+        pygame.display.set_caption("Robot Grid Environment")
+
+        # Obstacles
+        self.obstacles = {
+            (3, 3), (3, 4), (3, 5),
+            (7, 1), (7, 2), (7, 3),
+            (10, 10), (10, 11), (11, 10),
+            (5, 8), (6, 8), (7, 8)
+        }
+
+        # Robots and goal positions
+        self.evader = [0, 0]        # Evader (Blue) starts at top-left
+        self.pursuer = [self.rows - 1, self.cols - 1]  # Pursuer (Red) starts at bottom-right
+        self.goal = (self.rows // 2, self.cols // 2)  # Goal placed in the center
+
+        # Frame rate controller
+        self.clock = pygame.time.Clock()
+
+    def is_valid_move(self, new_pos):
+        """
+        @brief Checks if the move is valid.
+        
+        @param new_pos The (row, col) position to check.
+        
+        @return True if the move is within bounds and not an obstacle, False otherwise.
+        """
+        row, col = new_pos
+        return (0 <= row < self.rows and 0 <= col < self.cols and new_pos not in self.obstacles)
+
+    def move_robot(self, robot, direction):
+        """
+        @brief Moves the specified robot in the given direction.
+
+        @param robot The robot to move ('evader' or 'pursuer').
+        @param direction The direction to move ('up', 'down', 'left', 'right').
+        """
+        if robot == "evader":
+            current_pos = self.evader
+        elif robot == "pursuer":
+            current_pos = self.pursuer
+        else:
+            return  # Invalid robot name
+
+        new_pos = list(current_pos)
+
+        if direction == "up":
+            new_pos[0] -= 1
+        elif direction == "down":
+            new_pos[0] += 1
+        elif direction == "left":
+            new_pos[1] -= 1
+        elif direction == "right":
+            new_pos[1] += 1
+
+        if self.is_valid_move(tuple(new_pos)):
+            if robot == "evader":
+                self.evader = new_pos
+            else:
+                self.pursuer = new_pos
+
+    def render(self):
+        """
+        @brief Renders the grid environment, including robots, obstacles, and the goal.
+        """
+        self.screen.fill(WHITE)
+        
+        # Draw the grid lines
+        for row in range(self.rows):
+            for col in range(self.cols):
+                rect = pygame.Rect(col * self.cell_size, row * self.cell_size, self.cell_size, self.cell_size)
+                pygame.draw.rect(self.screen, GRAY, rect, 1)
+        
+        # Draw obstacles
+        for obs in self.obstacles:
+            obs_rect = pygame.Rect(obs[1] * self.cell_size, obs[0] * self.cell_size, self.cell_size, self.cell_size)
+            pygame.draw.rect(self.screen, BLACK, obs_rect)
+
+        # Draw the goal
+        goal_rect = pygame.Rect(self.goal[1] * self.cell_size, self.goal[0] * self.cell_size, self.cell_size, self.cell_size)
+        pygame.draw.rect(self.screen, GREEN, goal_rect)
+
+        # Draw the evader (blue)
+        evader_x = self.evader[1] * self.cell_size + self.cell_size // 2
+        evader_y = self.evader[0] * self.cell_size + self.cell_size // 2
+        pygame.draw.circle(self.screen, BLUE, (evader_x, evader_y), self.cell_size // 2 - 5)
+
+        # Draw the pursuer (red)
+        pursuer_x = self.pursuer[1] * self.cell_size + self.cell_size // 2
+        pursuer_y = self.pursuer[0] * self.cell_size + self.cell_size // 2
+        pygame.draw.circle(self.screen, RED, (pursuer_x, pursuer_y), self.cell_size // 2 - 5)
+
+        # Update display
+        pygame.display.flip()
+
+    def reset(self):
+        """
+        @brief Resets the environment by repositioning robots to their initial locations.
+        """
+        self.evader = [0, 0]
+        self.pursuer = [self.rows - 1, self.cols - 1]
+
+    def run_manual_control(self):
+        """
+        @brief Runs the environment in manual mode where users can control robots using the keyboard.
+        
+        Arrow keys control the Evader.
+        WASD controls the Pursuer.
+        """
+        running = True
+        while running:
+            self.clock.tick(10)  # Limit frame rate to 10 FPS
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        self.move_robot("evader", "up")
+                    elif event.key == pygame.K_DOWN:
+                        self.move_robot("evader", "down")
+                    elif event.key == pygame.K_LEFT:
+                        self.move_robot("evader", "left")
+                    elif event.key == pygame.K_RIGHT:
+                        self.move_robot("evader", "right")
+
+                    if event.key == pygame.K_w:
+                        self.move_robot("pursuer", "up")
+                    elif event.key == pygame.K_s:
+                        self.move_robot("pursuer", "down")
+                    elif event.key == pygame.K_a:
+                        self.move_robot("pursuer", "left")
+                    elif event.key == pygame.K_d:
+                        self.move_robot("pursuer", "right")
+
+            self.render()
+
+        pygame.quit()
+        sys.exit()
 
 
-# Main loop control variable
-running = True
-
-# Main game loop
-while running:
-    # Limit the frame rate to 10 frames per second
-    clock.tick(10)
-    
-    # Handle events
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-
-        if event.type == pygame.KEYDOWN:
-            
-            # Handle movement for the blue robot (Arrow Keys)
-            new_row = blue_robot[0]
-            new_col = blue_robot[1]
-
-            if event.key == pygame.K_UP:
-                new_row -= 1
-            elif event.key == pygame.K_DOWN:
-                new_row += 1
-            elif event.key == pygame.K_LEFT:
-                new_col -= 1
-            elif event.key == pygame.K_RIGHT:
-                new_col += 1
-            
-            if is_valid_move(new_row, new_col):
-                blue_robot = [new_row, new_col]
-
-            # Handle movement for the red robot (WASD Keys)
-            new_row = red_robot[0]
-            new_col = red_robot[1]
-
-            if event.key == pygame.K_w:
-                new_row -= 1
-            elif event.key == pygame.K_s:
-                new_row += 1
-            elif event.key == pygame.K_a:
-                new_col -= 1
-            elif event.key == pygame.K_d:
-                new_col += 1
-            
-            if is_valid_move(new_row, new_col):
-                red_robot = [new_row, new_col]
-
-    # Clear the screen
-    screen.fill(WHITE)
-    
-    # Draw the grid lines
-    for row in range(rows):
-        for col in range(cols):
-            rect = pygame.Rect(col * cell_size, row * cell_size, cell_size, cell_size)
-            pygame.draw.rect(screen, GRAY, rect, 1)
-    
-    # Draw obstacles
-    for obs in obstacles:
-        obs_rect = pygame.Rect(obs[1] * cell_size, obs[0] * cell_size, cell_size, cell_size)
-        pygame.draw.rect(screen, BLACK, obs_rect)
-    
-    # Draw the goal
-    goal_rect = pygame.Rect(goal[1] * cell_size, goal[0] * cell_size, cell_size, cell_size)
-    pygame.draw.rect(screen, GREEN, goal_rect)
-    
-    # Draw the blue robot
-    blue_center_x = blue_robot[1] * cell_size + cell_size // 2
-    blue_center_y = blue_robot[0] * cell_size + cell_size // 2
-    pygame.draw.circle(screen, BLUE, (blue_center_x, blue_center_y), cell_size // 2 - 5)
-    
-    # Draw the red robot
-    red_center_x = red_robot[1] * cell_size + cell_size // 2
-    red_center_y = red_robot[0] * cell_size + cell_size // 2
-    pygame.draw.circle(screen, RED, (red_center_x, red_center_y), cell_size // 2 - 5)
-    
-    # Update the display
-    pygame.display.flip()
-
-# Quit Pygame
-pygame.quit()
-sys.exit()
+# Example usage
+if __name__ == "__main__":
+    env = RobotGridEnv(rows=20, cols=20, cell_size=30)  # Example: custom grid size
+    env.run_manual_control()
