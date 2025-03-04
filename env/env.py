@@ -1,22 +1,24 @@
 import pygame
 import sys
-from colors import WHITE, BLACK, BLUE, RED, GREEN, GRAY  # Import colors
+import json
+from colors import *
 
 class RobotGridEnv:
     """
-    @brief Class representing a grid-based environment for two robots (Evader & Pursuer).
+    @brief Class representing a grid-based environment for two robots (Evader & Pursuer)
     
-    This class allows the Evader and Pursuer to move within a grid, avoiding obstacles.
-    A path planner can interact with the environment via method calls.
+    This class allows robots to move within a grid, avoid obstacles, and interact with a path planner
+    It supports placing/removing obstacles, saving/loading the environment, and running simulations
     """
 
-    def __init__(self, rows=15, cols=15, cell_size=40):
+    def __init__(self, rows=15, cols=15, cell_size=40, env_file="environment.json"):
         """
-        @brief Initializes the environment with customizable grid size.
+        @brief Initializes the environment with customizable grid size
         
-        @param rows Number of rows in the grid (default: 15).
-        @param cols Number of columns in the grid (default: 15).
-        @param cell_size Size of each cell in pixels (default: 40).
+        @param rows Number of rows in the grid (default: 15)
+        @param cols Number of columns in the grid (default: 15)
+        @param cell_size Size of each cell in pixels (default: 40)
+        @param env_file File to save/load environment settings
         """
         pygame.init()
         
@@ -25,45 +27,68 @@ class RobotGridEnv:
         self.cols = cols
         self.cell_size = cell_size
         self.width = self.cols * self.cell_size
-        self.height = self.rows * self.cell_size
+        self.height = self.rows * self.cell_size + 50  # Extra space for Save button
         
         # Create game window
         self.screen = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption("Robot Grid Environment")
+        pygame.display.set_caption("Grid World")
 
-        # Obstacles
-        self.obstacles = {
-            (3, 3), (3, 4), (3, 5),
-            (7, 1), (7, 2), (7, 3),
-            (10, 10), (10, 11), (11, 10),
-            (5, 8), (6, 8), (7, 8)
-        }
+        # File to save/load environment
+        self.env_file = env_file
 
-        # Robots and goal positions
-        self.evader = [0, 0]        # Evader (Blue) starts at top-left
-        self.pursuer = [self.rows - 1, self.cols - 1]  # Pursuer (Red) starts at bottom-right
-        self.goal = (self.rows // 2, self.cols // 2)  # Goal placed in the center
+        # Load environment settings
+        self.load_environment()
+
+        # Save Environment Button
+        self.save_button_rect = pygame.Rect(self.width // 2 - 60, self.height - 40, 120, 30)
 
         # Frame rate controller
         self.clock = pygame.time.Clock()
 
+    def load_environment(self):
+        """
+        @brief Loads the environment (obstacles, robot positions) from a JSON file.
+        """
+        try:
+            with open(self.env_file, "r") as file:
+                data = json.load(file)
+                self.obstacles = set(tuple(obstacle) for obstacle in data["obstacles"])
+                self.evader = data["evader"]
+                self.pursuer = data["pursuer"]
+        except FileNotFoundError:
+            self.obstacles = set()
+            self.evader = [0, 0]  # Default evader position
+            self.pursuer = [self.rows - 1, self.cols - 1]  # Default pursuer position
+
+    def save_environment(self):
+        """
+        @brief Saves the current environment (obstacles, robot positions) to a JSON file
+        """
+        data = {
+            "obstacles": list(self.obstacles),
+            "evader": self.evader,
+            "pursuer": self.pursuer
+        }
+        with open(self.env_file, "w") as file:
+            json.dump(data, file)
+
     def is_valid_move(self, new_pos):
         """
-        @brief Checks if the move is valid.
+        @brief Checks if the move is valid
         
-        @param new_pos The (row, col) position to check.
+        @param new_pos The (row, col) position to check
         
-        @return True if the move is within bounds and not an obstacle, False otherwise.
+        @return True if the move is within bounds and not an obstacle, False otherwise
         """
         row, col = new_pos
         return (0 <= row < self.rows and 0 <= col < self.cols and new_pos not in self.obstacles)
 
     def move_robot(self, robot, direction):
         """
-        @brief Moves the specified robot in the given direction.
+        @brief Moves the specified robot in the given direction
 
-        @param robot The robot to move ('evader' or 'pursuer').
-        @param direction The direction to move ('up', 'down', 'left', 'right').
+        @param robot The robot to move ('evader' or 'pursuer')
+        @param direction The direction to move ('north', 'south', 'west', 'east')
         """
         if robot == "evader":
             current_pos = self.evader
@@ -74,13 +99,13 @@ class RobotGridEnv:
 
         new_pos = list(current_pos)
 
-        if direction == "up":
+        if direction == "north":
             new_pos[0] -= 1
-        elif direction == "down":
+        elif direction == "south":
             new_pos[0] += 1
-        elif direction == "left":
+        elif direction == "west":
             new_pos[1] -= 1
-        elif direction == "right":
+        elif direction == "east":
             new_pos[1] += 1
 
         if self.is_valid_move(tuple(new_pos)):
@@ -89,13 +114,28 @@ class RobotGridEnv:
             else:
                 self.pursuer = new_pos
 
+    def toggle_obstacle(self, pos):
+        """
+        @brief Adds or removes an obstacle at the clicked grid position
+        
+        @param pos (x, y) screen coordinates of the mouse click
+        """
+        col = pos[0] // self.cell_size
+        row = pos[1] // self.cell_size
+
+        if 0 <= row < self.rows and 0 <= col < self.cols:
+            if (row, col) in self.obstacles:
+                self.obstacles.remove((row, col))  # Remove obstacle
+            else:
+                self.obstacles.add((row, col))  # Add obstacle
+
     def render(self):
         """
-        @brief Renders the grid environment, including robots, obstacles, and the goal.
+        @brief Renders the grid environment, including robots, obstacles, and the goal
         """
         self.screen.fill(WHITE)
         
-        # Draw the grid lines
+        # Draw the grid
         for row in range(self.rows):
             for col in range(self.cols):
                 rect = pygame.Rect(col * self.cell_size, row * self.cell_size, self.cell_size, self.cell_size)
@@ -106,63 +146,51 @@ class RobotGridEnv:
             obs_rect = pygame.Rect(obs[1] * self.cell_size, obs[0] * self.cell_size, self.cell_size, self.cell_size)
             pygame.draw.rect(self.screen, BLACK, obs_rect)
 
-        # Draw the goal
-        goal_rect = pygame.Rect(self.goal[1] * self.cell_size, self.goal[0] * self.cell_size, self.cell_size, self.cell_size)
-        pygame.draw.rect(self.screen, GREEN, goal_rect)
-
-        # Draw the evader (blue)
+        # Draw the evader
         evader_x = self.evader[1] * self.cell_size + self.cell_size // 2
         evader_y = self.evader[0] * self.cell_size + self.cell_size // 2
         pygame.draw.circle(self.screen, BLUE, (evader_x, evader_y), self.cell_size // 2 - 5)
 
-        # Draw the pursuer (red)
+        # Draw the pursuer
         pursuer_x = self.pursuer[1] * self.cell_size + self.cell_size // 2
         pursuer_y = self.pursuer[0] * self.cell_size + self.cell_size // 2
         pygame.draw.circle(self.screen, RED, (pursuer_x, pursuer_y), self.cell_size // 2 - 5)
 
+        # Draw the Save Environment button
+        pygame.draw.rect(self.screen, GREEN, self.save_button_rect, border_radius=10)
+        pygame.draw.rect(self.screen, BLACK, self.save_button_rect, width=2, border_radius=10) 
+
+        # Button text
+        font = pygame.font.Font(None, 18)
+        text = font.render("Save Environment", True, BLACK)
+        text_rect = text.get_rect(center=self.save_button_rect.center)
+        self.screen.blit(text, text_rect)
+
         # Update display
         pygame.display.flip()
 
-    def reset(self):
-        """
-        @brief Resets the environment by repositioning robots to their initial locations.
-        """
-        self.evader = [0, 0]
-        self.pursuer = [self.rows - 1, self.cols - 1]
 
-    def run_manual_control(self):
+    def run_obstacle_editor(self):
         """
-        @brief Runs the environment in manual mode where users can control robots using the keyboard.
+        @brief Runs the environment in obstacle-editing mode
         
-        Arrow keys control the Evader.
-        WASD controls the Pursuer.
+        Click on grid cells to add/remove obstacles
+        Click the "Save Environment" button to save changes
         """
         running = True
         while running:
-            self.clock.tick(10)  # Limit frame rate to 10 FPS
+            self.clock.tick(10)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
 
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_UP:
-                        self.move_robot("evader", "up")
-                    elif event.key == pygame.K_DOWN:
-                        self.move_robot("evader", "down")
-                    elif event.key == pygame.K_LEFT:
-                        self.move_robot("evader", "left")
-                    elif event.key == pygame.K_RIGHT:
-                        self.move_robot("evader", "right")
-
-                    if event.key == pygame.K_w:
-                        self.move_robot("pursuer", "up")
-                    elif event.key == pygame.K_s:
-                        self.move_robot("pursuer", "down")
-                    elif event.key == pygame.K_a:
-                        self.move_robot("pursuer", "left")
-                    elif event.key == pygame.K_d:
-                        self.move_robot("pursuer", "right")
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.save_button_rect.collidepoint(event.pos):
+                        self.save_environment()
+                        print("Environment saved successfully!")
+                    else:
+                        self.toggle_obstacle(event.pos)
 
             self.render()
 
@@ -170,7 +198,7 @@ class RobotGridEnv:
         sys.exit()
 
 
-# Example usage
+# main
 if __name__ == "__main__":
-    env = RobotGridEnv(rows=20, cols=20, cell_size=30)  # Example: custom grid size
-    env.run_manual_control()
+    env = RobotGridEnv()
+    env.run_obstacle_editor()
