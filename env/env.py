@@ -3,11 +3,11 @@ import sys
 import json
 from colors import *
 
-class RobotGridEnv:
+class GridEnv:
     """
-    @brief Class representing a grid-based environment for two robots (Evader & Pursuer)
+    @brief Class representing a grid-based environment for two agents (Evader & Pursuer)
     
-    This class allows robots to move within a grid, avoid obstacles, and interact with a path planner
+    This class allows agents to move within a grid, avoid obstacles, and interact with a path planner
     It supports placing/removing obstacles, saving/loading the environment, and running simulations
     """
 
@@ -47,7 +47,7 @@ class RobotGridEnv:
 
     def load_environment(self):
         """
-        @brief Loads the environment (obstacles, robot positions) from a JSON file.
+        @brief Loads the environment (obstacles, agent positions) from a JSON file.
         """
         try:
             with open(self.env_file, "r") as file:
@@ -62,7 +62,7 @@ class RobotGridEnv:
 
     def save_environment(self):
         """
-        @brief Saves the current environment (obstacles, robot positions) to a JSON file
+        @brief Saves the current environment (obstacles, agent positions) to a JSON file
         """
         data = {
             "obstacles": list(self.obstacles),
@@ -83,19 +83,19 @@ class RobotGridEnv:
         row, col = new_pos
         return (0 <= row < self.rows and 0 <= col < self.cols and new_pos not in self.obstacles)
 
-    def move_robot(self, robot, direction):
+    def move_agent(self, agent, direction):
         """
-        @brief Moves the specified robot in the given direction
+        @brief Moves the specified agent in the given direction
 
-        @param robot The robot to move ('evader' or 'pursuer')
+        @param agent The agent to move ('evader' or 'pursuer')
         @param direction The direction to move ('north', 'south', 'west', 'east')
         """
-        if robot == "evader":
+        if agent == "evader":
             current_pos = self.evader
-        elif robot == "pursuer":
+        elif agent == "pursuer":
             current_pos = self.pursuer
         else:
-            return  # Invalid robot name
+            return  # Invalid agent name
 
         new_pos = list(current_pos)
 
@@ -109,7 +109,7 @@ class RobotGridEnv:
             new_pos[1] += 1
 
         if self.is_valid_move(tuple(new_pos)):
-            if robot == "evader":
+            if agent == "evader":
                 self.evader = new_pos
             else:
                 self.pursuer = new_pos
@@ -131,7 +131,7 @@ class RobotGridEnv:
 
     def render(self):
         """
-        @brief Renders the grid environment, including robots, obstacles, and the goal
+        @brief Renders the grid environment, including agents, obstacles, and the goal
         """
         self.screen.fill(WHITE)
         
@@ -200,5 +200,5 @@ class RobotGridEnv:
 
 # main
 if __name__ == "__main__":
-    env = RobotGridEnv()
+    env = GridEnv()
     env.run_obstacle_editor()
