@@ -30,14 +30,14 @@ def simulate(problem, max_steps=100, planning_time=0.5, visualize=False):
         discount_factor=0.95,
         planning_time=planning_time,
         exploration_const=100,
-        rollout_policy=pomdp_py.RandomRollout(action_space=ALL_MOTION_ACTIONS)
+        rollout_policy=problem.agent.policy_model
     )
 
     total_reward = 0
     for step in range(max_steps):
         action = planner.plan(problem.agent)
         next_state, reward = problem.env.state_transition(action, execute=True)
-        observation = problem.env.provide_observation(action)
+        observation = problem.env.provide_observation(problem.agent.observation_model, action)
         problem.agent.update_belief(action, observation)
 
         total_reward += reward

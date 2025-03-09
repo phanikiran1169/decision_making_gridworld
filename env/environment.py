@@ -28,7 +28,7 @@ class GridWorldEnvironment(pomdp_py.Environment):
         reward = self.reward_model.sample(self.state, action, next_state)
 
         if execute:
-            self.state = next_state
+            self.apply_transition(next_state)
             return next_state, reward
         else:
             return next_state, reward
