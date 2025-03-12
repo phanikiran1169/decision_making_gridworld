@@ -20,13 +20,12 @@ class GridWorldObservationModel(pomdp_py.ObservationModel):
         expected_obs = self.sample(next_state, action)
         return 1.0 if observation == expected_obs else 0.0
 
-    def sample(self, next_state, action, argmax=False):
+    def sample(self, next_state, action):
         evader_pos = next_state.evader.pose
         observed_cells = {}
 
         # Check visibility in all cardinal directions
-        directions = [MotionAction.NORTH, MotionAction.SOUTH,
-                      MotionAction.EAST, MotionAction.WEST]
+        directions = [MotionAction.NORTH, MotionAction.SOUTH, MotionAction.EAST, MotionAction.WEST]
 
         for dx, dy in directions:
             x, y = evader_pos

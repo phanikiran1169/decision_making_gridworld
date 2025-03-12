@@ -29,8 +29,8 @@ class Action(pomdp_py.Action):
 class MotionAction(Action):
     EAST = (STEP_SIZE, 0)
     WEST = (-STEP_SIZE, 0)
-    NORTH = (0, -STEP_SIZE)
-    SOUTH = (0, STEP_SIZE)
+    NORTH = (0, STEP_SIZE)
+    SOUTH = (0, -STEP_SIZE)
 
     VALID_MOTIONS = {
         "east": EAST,
@@ -43,27 +43,14 @@ class MotionAction(Action):
         """
         motion: tuple representing the movement in (x, y).
         """
-        if motion not in MotionAction.VALID_MOTIONS():
+        if motion not in MotionAction.VALID_MOTIONS.values():
             raise ValueError(f"Invalid motion: {motion}")
 
-        motion_name = [direction for direction, motion in MotionAction.MOTION_DICT().items() if motion == motion][0]
+        motion_name = next(direction for direction, motion_val in MotionAction.VALID_MOTIONS.items() if motion_val == motion)
 
         super().__init__(f"move-{motion_name}")
         self.motion = motion
         self.distance_cost = distance_cost
-
-    @staticmethod
-    def VALID_MOTIONS():
-        return [MotionAction.EAST, MotionAction.WEST, MotionAction.NORTH, MotionAction.SOUTH]
-
-    @staticmethod
-    def MOTION_DICT():
-        return {
-            "east": MotionAction.EAST,
-            "west": MotionAction.WEST,
-            "north": MotionAction.NORTH,
-            "south": MotionAction.SOUTH
-        }
 
     def __str__(self):
         return self.name
@@ -83,3 +70,12 @@ MoveSouth = MotionAction(MotionAction.SOUTH)
 
 # List of all movement actions
 ALL_MOTION_ACTIONS = [MoveEast, MoveWest, MoveNorth, MoveSouth]
+class LookAction(Action):
+    """Action to look around before moving."""
+    def __init__(self):
+        super().__init__("look")
+
+class FindAction(Action):
+    """Action to declare that an object has been found."""
+    def __init__(self):
+        super().__init__("find")

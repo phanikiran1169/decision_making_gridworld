@@ -18,25 +18,39 @@ class GridWorldEnvironment(pomdp_py.Environment):
         reward_model = GridWorldRewardModel(robot_id='evader')
         self.observation_model = GridWorldObservationModel(grid_size)
         super().__init__(init_state, transition_model, reward_model)
-
-        self.policy_model = GridWorldPolicyModel(grid_size)
+        print(f"[DEBUG] Environment initialized with state: {init_state}")
+        # self.policy_model = GridWorldPolicyModel(grid_size)
 
 
     def state_transition(self, action, execute=True):
         """Execute action and optionally apply it to update state"""
         next_state = self.transition_model.sample(self.state, action)
         reward = self.reward_model.sample(self.state, action, next_state)
+        print(f"[DEBUG] Transitioning from {self.state} using {action} to {next_state}")
 
         if execute:
             self.apply_transition(next_state)
+            print(f"[DEBUG] Applied transition. New state: {self.state}")
             return next_state, reward
         else:
             return next_state, reward
-
-    def is_goal_reached(self):
-        """Check if the agent reached its goal"""
-        return self.state.evader.pose == self.state.evader.goal_pose
+        
+    def apply_transition(self, next_state):
+        """
+        Updates the environment's state to the given next_state.
+        This ensures that the agent progresses in the environment.
+        """
+        print(f"[DEBUG] Applying transition. Old state: {self.state} -> New state: {next_state}")
+        self._state = next_state
 
     def in_terminal_state(self):
-        """Define terminal condition clearly"""
-        return self.is_goal_reached()
+        """Returns True if the agent has reached the goal."""
+        evader_pos = self.state.evader.pose
+        if evader_pos == self.state.evader.goal_pose:
+            print("[INFO] Agent has reached the goal! Terminating simulation.")
+            return True
+        return False
+    
+    def provide_observation(self, observation_model, action):
+        """Uses the observation model to generate an observation based on the current state."""
+        return self.observation_model.sample(self.state, action)

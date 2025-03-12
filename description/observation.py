@@ -11,7 +11,7 @@ class CellObservation(pomdp_py.Observation):
         """
         Args:
             position (tuple): (x,y) grid cell position.
-            status (str|None): FREE, OBSTACLE, or UNKNOWN
+            status (str): FREE, OBSTACLE, or UNKNOWN
         """
         if status not in {self.FREE, self.OBSTACLE, self.UNKNOWN}:
             raise ValueError("Invalid status: must be 'free', 'obstacle', or None.")

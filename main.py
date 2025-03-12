@@ -26,40 +26,55 @@ def simulate(problem, max_steps=100, planning_time=0.5, visualize=False):
         visualize: Whether to visualize each step (optional)
     """
     planner = pomdp_py.POUCT(
-        max_depth=20,
+        max_depth=1,
         discount_factor=0.95,
         planning_time=planning_time,
-        exploration_const=100,
+        exploration_const=1,
         rollout_policy=problem.agent.policy_model
     )
 
     total_reward = 0
+
     for step in range(max_steps):
+        print(f"\n[STEP {step+1}] ------------------------")
+
+        # Get valid actions ONCE before planning
+        belief = problem.agent.belief
+        state = belief.mpe()
+        valid_actions = problem.agent.policy_model.get_all_actions(state, belief)
+
+        if not valid_actions:
+            print("[ERROR] No valid actions available! Ending simulation.")
+            break
+
+        # Plan once using POUCT
         action = planner.plan(problem.agent)
+
+        # Execute state transition ONCE
         next_state, reward = problem.env.state_transition(action, execute=True)
+
+        # Get observation and update belief
         observation = problem.env.provide_observation(problem.agent.observation_model, action)
         problem.agent.update_belief(action, observation)
 
-        total_reward += reward
+        print(f"Action Taken: {action}")
+        print(f"Observation Received: {observation}")
+        print(f"Reward Gained: {reward}")
 
-        print(f"Step {step+1}:")
-        print(f"Action: {action}")
-        print(f"Observation: {observation}")
-        print(f"Reward: {reward}")
-        print(f"Total Reward: {total_reward}\n")
-
+        # Check terminal condition
         if problem.env.in_terminal_state():
-            print("Goal reached! Ending simulation.")
+            print("[INFO] Goal reached! Ending simulation.")
             break
 
+
 if __name__ == '__main__':
-    grid_size = (10, 10)
+    grid_size = (3, 3)
     init_evader_pose = (0, 0)
-    goal_pose = (9, 9)
+    goal_pose = (2, 1)
 
     # Optional prior knowledge about obstacles (uniformly uncertain if not provided)
-    obstacle_prior = None  # or specify {(x, y): probability}
+    obstacle_prior = {(1, 0): 0.5}  # or specify {(x, y): probability}
 
-    problem = GridWorldPOMDP(grid_size, init_evader_pose, goal_pose, obstacle_prior)
+    problem = GridWorldPOMDP(grid_size, init_evader_pose, goal_pose, obstacle_prior=obstacle_prior)
 
-    simulate(problem, max_steps=50, planning_time=0.5)
+    simulate(problem, max_steps=1, planning_time=0.5)

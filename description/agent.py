@@ -59,7 +59,17 @@ class GridWorldAgent(pomdp_py.Agent):
         """
         Updates belief based on action taken and observation received.
         """
-        self.belief.update(observation)
+        print(f"[DEBUG] Updating belief with action {action} and observation {observation}")
+    
+        prev_belief = self.belief.mpe()
+        self.belief.update(action, observation)
+        new_belief = self.belief.mpe()
+
+        print(f"[DEBUG] Previous belief state: {prev_belief}")
+        print(f"[DEBUG] Updated belief state: {new_belief}")
+
+        if prev_belief != new_belief:
+            print("[DEBUG] Belief has changed! The agent has learned about obstacles.")
 
     @property
     def current_pose(self):

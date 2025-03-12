@@ -1,5 +1,5 @@
 import pomdp_py
-from description.action import MotionAction
+from description.action import MotionAction, LookAction, FindAction
 
 
 class GridWorldRewardModel(pomdp_py.RewardModel):
@@ -33,19 +33,36 @@ class GridWorldRewardModel(pomdp_py.RewardModel):
         return self._reward_func(state, action, next_state)
 
     def _reward_func(self, state, action, next_state):
-        # Check if the action is a MotionAction
-        if not isinstance(action, MotionAction):
-            return 0  # Non-motion actions don't affect reward
+        # Handle FindAction
+        if isinstance(action, FindAction):
+            if state.evader.pose == state.evader.goal_pose:
+                print("[INFO] FindAction successful! Reward = 100")
+                return self.GOAL_REWARD  # Success
+            else:
+                print("[INFO] FindAction failed. Penalty = -1")
+                return self.MOVE_PENALTY  # Small penalty for incorrect FindAction
 
-        evader_next_pos = next_state.evader.pose
+        # Handle LookAction
+        if isinstance(action, LookAction):
+            print("[INFO] LookAction taken. Penalty = -1")
+            return self.MOVE_PENALTY  # Small penalty for using LookAction
 
-        # Check if reached the goal
-        if evader_next_pos == next_state.evader.goal_pose:
-            return self.GOAL_REWARD
+        # Handle MotionActions
+        if isinstance(action, MotionAction):
+            evader_next_pos = next_state.evader.pose
 
-        # Check collision with obstacle
-        if next_state.obstacle_at(evader_next_pos):
-            return self.OBSTACLE_PENALTY
+            # Check if reached the goal
+            if evader_next_pos == next_state.evader.goal_pose:
+                print("[INFO] Goal reached! Reward = 100")
+                return self.GOAL_REWARD
 
-        # Regular movement penalty
-        return self.MOVE_PENALTY
+            # Check collision with obstacle
+            if next_state.obstacle_at(evader_next_pos):
+                print("[WARNING] Obstacle hit! Heavy penalty (-25)")
+                return self.OBSTACLE_PENALTY
+
+            # Regular movement penalty
+            return self.MOVE_PENALTY
+
+        # Default case (should not happen)
+        return 0
