@@ -1,3 +1,4 @@
+import logging
 import pomdp_py
 import random
 from description.state import GridWorldState, EvaderState, ObstacleState
@@ -24,9 +25,9 @@ class GridWorldBelief(pomdp_py.GenerativeDistribution):
         self.goal_pose = goal_pose
 
         self.obstacle_prior = obstacle_prior or self._uniform_prior()
-        print("GridWorldBelief")
-        print(f"obstacle prior - {self.obstacle_prior}")
-        print("---------------")
+        logging.info("GridWorldBelief")
+        logging.info(f"obstacle prior - {self.obstacle_prior}")
+        logging.info("---------------")
         self.histogram = self._initialize_histogram()
 
     def _uniform_prior(self):
@@ -52,7 +53,7 @@ class GridWorldBelief(pomdp_py.GenerativeDistribution):
     def update(self, action, observation):
         """Update belief histogram based on received observation"""
         if isinstance(action, LookAction):
-            print(f"[DEBUG] Updating belief based on LookAction at {self.evader_pose}")
+            logging.info(f"[Updating belief based on LookAction at {self.evader_pose}")
 
             for pos, status in observation.observed_cells.items():
                 if status == CellObservation.FREE:
@@ -69,7 +70,7 @@ class GridWorldBelief(pomdp_py.GenerativeDistribution):
             if prob >= 0.5:
                 obs_id = f"obs_{pos[0]}_{pos[1]}"
                 obstacles[obs_id] = ObstacleState(obs_id, pos)
-        print(f"[DEBUG] MPE generated with obstacles: {obstacles}")
+        logging.info(f"[MPE generated with obstacles: {obstacles}")
         evader_state = EvaderState('evader', self.evader_pose, self.goal_pose)
         return GridWorldState(evader_state, obstacles)
 

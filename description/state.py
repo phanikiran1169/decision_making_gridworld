@@ -1,3 +1,4 @@
+import logging
 import pomdp_py
 
 class ObstacleState(pomdp_py.ObjectState):
@@ -65,7 +66,7 @@ class GridWorldState(pomdp_py.OOState):
     def obstacle_at(self, pos):
         """Check if obstacle occupies position pos=(x,y)."""
         obstacles = self.obstacles
-        print(f"[DEBUG] Checking obstacle at {pos}. Obstacles present: {obstacles}")
+        logging.info(f"[Checking obstacle at {pos}. Obstacles present: {obstacles}")
         return any(obs.pose == pos for obs in self.obstacles.values())
 
     def within_bounds(self, pos, grid_size):

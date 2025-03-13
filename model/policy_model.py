@@ -1,3 +1,4 @@
+import logging
 import pomdp_py
 import random
 from description.action import ALL_MOTION_ACTIONS, LookAction, FindAction, MotionAction
@@ -18,7 +19,7 @@ class GridWorldPolicyModel(pomdp_py.RolloutPolicy):
         valid_actions = self.get_all_actions(state, kwargs.get("belief", None), kwargs.get("history", None))
 
         if not valid_actions:
-            print("[INFO] No valid actions available. Defaulting to LookAction.")
+            logging.info("No valid actions available. Defaulting to LookAction.")
             return LookAction()
 
         # Prioritize FindAction if belief about goal is high
@@ -68,23 +69,23 @@ class GridWorldPolicyModel(pomdp_py.RolloutPolicy):
         valid_actions = []
         evader_pos = state.evader.pose
 
-        print(f"[DEBUG] Evaluating actions for state: {state}")
+        logging.info(f"[Evaluating actions for state: {state}")
 
         # Check valid motion actions
         for action in ALL_MOTION_ACTIONS:
             dx, dy = action.motion
             next_pos = (evader_pos[0] + dx, evader_pos[1] + dy)
 
-            print(f"[DEBUG] Checking move {action}: {evader_pos} -> {next_pos}")
+            logging.info(f"[Checking move {action}: {evader_pos} -> {next_pos}")
 
             # Skip out-of-bounds moves
             if not state.within_bounds(next_pos, (self.grid_width, self.grid_height)):
-                print(f"[DEBUG] Move {action} out of bounds.")
+                logging.info(f"[Move {action} out of bounds.")
                 continue
 
             # Skip if obstacle
             if state.obstacle_at(next_pos):
-                print(f"[DEBUG] Obstacle detected at {next_pos}, skipping move {action}.")
+                logging.info(f"[Obstacle detected at {next_pos}, skipping move {action}.")
                 continue
 
             valid_actions.append(action)
@@ -95,11 +96,11 @@ class GridWorldPolicyModel(pomdp_py.RolloutPolicy):
         # Allow FindAction only if belief in the goal is high
         if belief is not None:
             belief_value = belief.belief_about_goal()
-            print(f"[DEBUG] Current belief about goal: {belief_value}")
+            logging.info(f"[Current belief about goal: {belief_value}")
             if belief_value >= self.BELIEF_THRESHOLD_FOR_FIND:
                 valid_actions.append(FindAction())
 
-        print(f"[DEBUG] Final Available Actions: {valid_actions}")
+        logging.info(f"[Final Available Actions: {valid_actions}")
         return valid_actions
         
     def rollout(self, state, history=None):

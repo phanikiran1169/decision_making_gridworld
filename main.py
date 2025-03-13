@@ -1,8 +1,41 @@
-import pomdp_py
+import logging
+import argparse
+import colorlog
 
+import pomdp_py
 from description.agent import GridWorldAgent
 from description.action import ALL_MOTION_ACTIONS
 from env.environment import GridWorldEnvironment
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description="Run GridWorld POMDP simulation.")
+parser.add_argument("--enable-logs", action="store_true", help="Enable logging output")
+args = parser.parse_args()
+
+# Define color logging formatter
+formatter = colorlog.ColoredFormatter(
+    "%(log_color)s%(levelname)s: %(message)s",
+    log_colors={
+        'DEBUG': 'cyan',
+        'INFO': 'green',
+        'WARNING': 'yellow',
+        'ERROR': 'red',
+        'CRITICAL': 'bold_red'
+    }
+)
+
+# Configure logging based on flag
+logger = logging.getLogger()
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+if args.enable_logs:
+    # Enable logging with INFO level
+    logger.setLevel(logging.INFO)
+else:
+    # Disable all logs by default
+    logging.disable(logging.CRITICAL)
 
 class GridWorldPOMDP(pomdp_py.OOPOMDP):
     """
@@ -36,7 +69,7 @@ def simulate(problem, max_steps=100, planning_time=0.5, visualize=False):
     total_reward = 0
 
     for step in range(max_steps):
-        print(f"\n[STEP {step+1}] ------------------------")
+        logging.info(f"\n[STEP {step+1}] ------------------------")
 
         # Get valid actions ONCE before planning
         belief = problem.agent.belief
@@ -44,7 +77,7 @@ def simulate(problem, max_steps=100, planning_time=0.5, visualize=False):
         valid_actions = problem.agent.policy_model.get_all_actions(state, belief)
 
         if not valid_actions:
-            print("[ERROR] No valid actions available! Ending simulation.")
+            logging.ERROR("No valid actions available! Ending simulation.")
             break
 
         # Plan once using POUCT
@@ -57,13 +90,13 @@ def simulate(problem, max_steps=100, planning_time=0.5, visualize=False):
         observation = problem.env.provide_observation(problem.agent.observation_model, action)
         problem.agent.update_belief(action, observation)
 
-        print(f"Action Taken: {action}")
-        print(f"Observation Received: {observation}")
-        print(f"Reward Gained: {reward}")
+        logging.info(f"Action Taken: {action}")
+        logging.info(f"Observation Received: {observation}")
+        logging.info(f"Reward Gained: {reward}")
 
         # Check terminal condition
         if problem.env.in_terminal_state():
-            print("[INFO] Goal reached! Ending simulation.")
+            logging.info("Goal reached! Ending simulation.")
             break
 
 

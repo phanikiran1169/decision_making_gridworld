@@ -1,3 +1,4 @@
+import logging
 import pomdp_py
 from description.state import GridWorldState, EvaderState, ObstacleState
 from description.action import MotionAction
@@ -18,7 +19,7 @@ class GridWorldEnvironment(pomdp_py.Environment):
         reward_model = GridWorldRewardModel(robot_id='evader')
         self.observation_model = GridWorldObservationModel(grid_size)
         super().__init__(init_state, transition_model, reward_model)
-        print(f"[DEBUG] Environment initialized with state: {init_state}")
+        logging.info(f"[Environment initialized with state: {init_state}")
         # self.policy_model = GridWorldPolicyModel(grid_size)
 
 
@@ -26,11 +27,11 @@ class GridWorldEnvironment(pomdp_py.Environment):
         """Execute action and optionally apply it to update state"""
         next_state = self.transition_model.sample(self.state, action)
         reward = self.reward_model.sample(self.state, action, next_state)
-        print(f"[DEBUG] Transitioning from {self.state} using {action} to {next_state}")
+        logging.info(f"[Transitioning from {self.state} using {action} to {next_state}")
 
         if execute:
             self.apply_transition(next_state)
-            print(f"[DEBUG] Applied transition. New state: {self.state}")
+            logging.info(f"[Applied transition. New state: {self.state}")
             return next_state, reward
         else:
             return next_state, reward
@@ -40,14 +41,14 @@ class GridWorldEnvironment(pomdp_py.Environment):
         Updates the environment's state to the given next_state.
         This ensures that the agent progresses in the environment.
         """
-        print(f"[DEBUG] Applying transition. Old state: {self.state} -> New state: {next_state}")
+        logging.info(f"[Applying transition. Old state: {self.state} -> New state: {next_state}")
         self._state = next_state
 
     def in_terminal_state(self):
         """Returns True if the agent has reached the goal."""
         evader_pos = self.state.evader.pose
         if evader_pos == self.state.evader.goal_pose:
-            print("[INFO] Agent has reached the goal! Terminating simulation.")
+            logging.info("Agent has reached the goal! Terminating simulation.")
             return True
         return False
     

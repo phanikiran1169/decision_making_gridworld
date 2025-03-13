@@ -1,3 +1,4 @@
+import logging
 import pygame
 import sys
 import json
@@ -190,13 +191,13 @@ class GridEnv:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_m:  # Press "M" to switch modes
                         edit_mode = not edit_mode
-                        print("Switched Mode:", "Obstacle Editing" if edit_mode else "Agent Movement")
+                        logging.info("Switched Mode:", "Obstacle Editing" if edit_mode else "Agent Movement")
 
                 if edit_mode:  # Obstacle Editing Mode
                     if event.type == pygame.MOUSEBUTTONDOWN:
                         if self.save_button_rect.collidepoint(event.pos):
                             self.save_environment()
-                            print("Environment saved successfully!")
+                            logging.info("Environment saved successfully!")
                         else:
                             self.toggle_obstacle(event.pos)
                 else:  # Agent Movement Mode

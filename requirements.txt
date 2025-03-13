@@ -1,2 +1,4 @@
 pygame
 pomdp_py
+logger
+colorlog
