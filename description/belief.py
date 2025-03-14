@@ -5,81 +5,84 @@ from description.state import GridWorldState, EvaderState, ObstacleState
 from description.action import LookAction
 from description.observation import CellObservation
 
-class GridWorldBelief(pomdp_py.GenerativeDistribution):
+class GridWorldBelief(pomdp_py.OOBelief):
     """
-    Histogram (tabular) belief distribution for GridWorld scenario
-    Represents uncertainty over obstacle locations (free/obstacle)
+    Object-Oriented Belief (OOBelief) for a grid world with multiple objects.
+    Stores separate beliefs for the evader and obstacles.
+    Once an obstacle is observed, its belief remains fixed (no uncertainty).
     """
-
-    def __init__(self, grid_size, evader_pose, goal_pose, obstacle_prior=None):
-        """
-        Args:
-            grid_size: (width, height) of grid world
-            evader_pose: Known initial pose of evader (fully observable)
-            goal_pose: Known location of goal
-            obstacle_prior: {(x,y): probability_of_obstacle}
-                            If None, assumes uniform uncertainty
-        """
+    
+    def __init__(self, evader_id, grid_size, evader_pose, goal_pose, obstacle_prior=None):
+        self.evader_id = evader_id
         self.grid_width, self.grid_height = grid_size
         self.evader_pose = evader_pose
         self.goal_pose = goal_pose
+        
+        object_beliefs = self._initialize_obstacle_beliefs(obstacle_prior)
+        object_beliefs[self.evader_id] = pomdp_py.Histogram({evader_pose: 1.0})
+        
+        super().__init__(object_beliefs)
 
-        self.obstacle_prior = obstacle_prior or self._uniform_prior()
-        logging.info("GridWorldBelief")
-        logging.info(f"obstacle prior - {self.obstacle_prior}")
-        logging.info("---------------")
-        self.histogram = self._initialize_histogram()
-
-    def _uniform_prior(self):
-        """Uniform probability (0.5 obstacle, 0.5 free) for unknown cells"""
-        prior = {}
+    def _initialize_obstacle_beliefs(self, obstacle_prior):
+        """Initializes beliefs for obstacles, excluding evader and goal positions."""
+        beliefs = {}
+        logging.info(f"obstacle prior in init belief method - {obstacle_prior}")
         for x in range(self.grid_width):
             for y in range(self.grid_height):
-                if (x, y) != self.evader_pose and (x, y) != self.goal_pose:
-                    prior[(x, y)] = 0.5
-        return prior
+                pos = (x, y)    
+                if pos in {self.evader_pose, self.goal_pose}:
+                    continue
+                
+                prior_prob = obstacle_prior.get(pos, 0.0) if obstacle_prior else 0.0
+                obs_id = f"obstacle_{x}_{y}"
+                beliefs[obs_id] = pomdp_py.Histogram({pos: prior_prob})
 
-    def _initialize_histogram(self):
-        """Initialize histogram belief as {(x,y): obstacle_probability}"""
-        histogram = {}
-        for pos, prob in self.obstacle_prior.items():
-            histogram[pos] = prob
-        return histogram
-    
-    def belief_about_goal(self):
-        """Returns the belief probability that the agent is at the goal based on the belief histogram."""
-        return 1.0 if self.evader_pose == self.goal_pose else 0.0
+        logging.info(f"Belief - {beliefs['obstacle_0_1'].histogram.get((0,1))}")
+        return beliefs
 
     def update(self, action, observation):
-        """Update belief histogram based on received observation"""
+        """Updates belief based on received observation."""
         if isinstance(action, LookAction):
-            logging.info(f"[Updating belief based on LookAction at {self.evader_pose}")
-
             for pos, status in observation.observed_cells.items():
+                obs_id = f"obstacle_{pos[0]}_{pos[1]}"
                 if status == CellObservation.FREE:
-                    # Free space
-                    self.histogram[pos] = 0.0
+                    self.object_beliefs.pop(obs_id, None)
                 elif status == CellObservation.OBSTACLE:
-                    # Obstacle
-                    self.histogram[pos] = 1.0
+                    self.object_beliefs[obs_id] = pomdp_py.Histogram({pos: 1.0})
+    
+    def mpe(self, **kwargs):
+        """Returns the most probable GridWorldState (MPE)."""
+        mpe_state = pomdp_py.OOBelief.mpe(self, **kwargs)
+        evader = EvaderState(self.evader_id, mpe_state.object_states['evader'], self.goal_pose)
+        obstacles = {
+            obj_id: ObstacleState(obj_id, pos) 
+            for obj_id, pos in mpe_state.object_states.items()
+            if obj_id != 'evader' and obj_id.startswith("obstacle") and self.object_beliefs[obj_id].histogram.get(pos, 0.0) > 0.0
+        }
+        logging.info(f"Most probable GridWorldState - {obstacles}")
+        return GridWorldState(evader, obstacles)
+    
+    def random(self, **kwargs):
+        """Samples a random GridWorldState."""
+        logging.info("GridWorldBelief - Random")
+        random_state = {}
+        for obj_id, belief in self.object_beliefs.items():
+            if isinstance(belief, pomdp_py.Histogram):
+                if sum(belief.histogram.values()) > 0:  # If there is at least one valid sample
+                    random_state[obj_id] = belief.random()
+                elif obj_id.startswith("obstacle"):  # If it is an obstacle with zero probability, remove it
+                    # logging.warning(f"Removing {obj_id} from belief due to zero probability mass.")
+                    pass
+                else:
+                    random_state[obj_id] = belief.mpe()  # Default to MPE for evader
 
-    def mpe(self):
-        """Returns most probable GridWorldState (MPE)"""
-        obstacles = {}
-        for pos, prob in self.histogram.items():
-            if prob >= 0.5:
-                obs_id = f"obs_{pos[0]}_{pos[1]}"
-                obstacles[obs_id] = ObstacleState(obs_id, pos)
-        logging.info(f"[MPE generated with obstacles: {obstacles}")
-        evader_state = EvaderState('evader', self.evader_pose, self.goal_pose)
-        return GridWorldState(evader_state, obstacles)
+        evader = EvaderState(self.evader_id, random_state[self.evader_id], self.goal_pose)
 
-    def random(self):
-        """Samples random GridWorldState based on current belief"""
-        obstacles = {}
-        for pos, prob in self.histogram.items():
-            if random.random() < prob:
-                obs_id = f"obs_{pos[0]}_{pos[1]}"
-                obstacles[obs_id] = ObstacleState(obs_id, pos)
-        evader_state = EvaderState('evader', self.evader_pose, self.goal_pose)
-        return GridWorldState(evader_state, obstacles)
+        obstacles = {
+            obj_id: ObstacleState(obj_id, pos)
+            for obj_id, pos in random_state.items()
+            if obj_id != 'evader' and obj_id.startswith("obstacle")
+        }
+
+        logging.info(f"Random GridWorldState - {GridWorldState(evader, obstacles)}")
+        return GridWorldState(evader, obstacles)    

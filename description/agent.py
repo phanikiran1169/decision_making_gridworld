@@ -24,29 +24,25 @@ class GridWorldAgent(pomdp_py.Agent):
             grid_size (tuple): (width, height) of grid.
             init_evader_pose (tuple): (x,y) initial position of evader.
             goal_pose (tuple): (x,y) goal position.
-            obstacle_prior (dict): {(x,y): probability_of_obstacle}.
-                                   If None, uniform prior used.
+            belief (GridWorldBelief): The belief representation for the agent.
         """
         self.grid_width, self.grid_height = grid_size
         self.robot_id = 'evader'
         self.init_evader_pose = init_evader_pose
         self.goal_pose = goal_pose
 
-        # Initialize belief
-        init_belief = GridWorldBelief(
-            grid_size,
-            evader_pose=init_evader_pose,
-            goal_pose=goal_pose,
-            obstacle_prior=obstacle_prior
-        )
-
         # Initialize models
         transition_model = GridWorldTransitionModel(grid_size)
         observation_model = GridWorldObservationModel(grid_size)
         reward_model = GridWorldRewardModel(robot_id=self.robot_id)
         policy_model = GridWorldPolicyModel(grid_size)
+        belief = GridWorldBelief(evader_id=self.robot_id, 
+                                grid_size=grid_size, 
+                                evader_pose=self.init_evader_pose, 
+                                goal_pose=self.goal_pose, 
+                                obstacle_prior=obstacle_prior)
 
-        super().__init__(init_belief,
+        super().__init__(belief,
                          policy_model,
                          transition_model=transition_model,
                          observation_model=observation_model,
@@ -55,22 +51,6 @@ class GridWorldAgent(pomdp_py.Agent):
     def clear_history(self):
         """Custom function to clear agent's action-observation history."""
         self._history = None
-
-    def update_belief(self, action, observation):
-        """
-        Updates belief based on action taken and observation received.
-        """
-        logging.info(f"[Updating belief with action {action} and observation {observation}")
-    
-        prev_belief = self.belief.mpe()
-        self.belief.update(action, observation)
-        new_belief = self.belief.mpe()
-
-        logging.info(f"[Previous belief state: {prev_belief}")
-        logging.info(f"[Updated belief state: {new_belief}")
-
-        if prev_belief != new_belief:
-            logging.info("[Belief has changed! The agent has learned about obstacles.")
 
     @property
     def current_pose(self):

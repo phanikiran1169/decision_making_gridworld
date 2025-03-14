@@ -20,6 +20,7 @@ class GridWorldTransitionModel(pomdp_py.TransitionModel):
 
     def sample(self, state, action):
         # Deterministic, simply returns argmax
+        logging.info("GridWorldTransitionModel - Sample")
         return self.argmax(state, action)
 
     def argmax(self, state, action):
@@ -47,7 +48,6 @@ class GridWorldTransitionModel(pomdp_py.TransitionModel):
                         pose=intended_pos,
                         goal_pose=state.evader.goal_pose
                     )
-                    logging.info(f"[Moving to {intended_pos}")
 
         elif isinstance(action, LookAction):
             logging.info(f"[LookAction at {state.evader.pose}. No movement occurs.")

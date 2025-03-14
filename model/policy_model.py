@@ -16,6 +16,7 @@ class GridWorldPolicyModel(pomdp_py.RolloutPolicy):
 
     def sample(self, state, **kwargs):
         """Selects the best action based on a heuristic approach."""
+        logging.info("GridWorldPolicyModel - Sample")
         valid_actions = self.get_all_actions(state, kwargs.get("belief", None), kwargs.get("history", None))
 
         if not valid_actions:
@@ -62,7 +63,7 @@ class GridWorldPolicyModel(pomdp_py.RolloutPolicy):
 
     def get_all_actions(self, state=None, belief=None, history=None):
         """Ensures the agent always has actions, including Look & Find"""
-        
+        logging.info("GridWorldPolicyModel - get_all_actions")
         if state is None:
             return ALL_MOTION_ACTIONS + [LookAction()] + [FindAction()]
 
@@ -70,13 +71,14 @@ class GridWorldPolicyModel(pomdp_py.RolloutPolicy):
         evader_pos = state.evader.pose
 
         logging.info(f"[Evaluating actions for state: {state}")
+        logging.error(f"history - {history}")
 
         # Check valid motion actions
         for action in ALL_MOTION_ACTIONS:
             dx, dy = action.motion
             next_pos = (evader_pos[0] + dx, evader_pos[1] + dy)
 
-            logging.info(f"[Checking move {action}: {evader_pos} -> {next_pos}")
+            # logging.info(f"[Checking move {action}: {evader_pos} -> {next_pos}")
 
             # Skip out-of-bounds moves
             if not state.within_bounds(next_pos, (self.grid_width, self.grid_height)):
@@ -92,16 +94,10 @@ class GridWorldPolicyModel(pomdp_py.RolloutPolicy):
 
         # Always include LookAction
         valid_actions.append(LookAction())
-
-        # Allow FindAction only if belief in the goal is high
-        if belief is not None:
-            belief_value = belief.belief_about_goal()
-            logging.info(f"[Current belief about goal: {belief_value}")
-            if belief_value >= self.BELIEF_THRESHOLD_FOR_FIND:
-                valid_actions.append(FindAction())
+        valid_actions.append(FindAction())
 
         logging.info(f"[Final Available Actions: {valid_actions}")
         return valid_actions
         
     def rollout(self, state, history=None):
-        return self.sample(state)
+        return self.sample(state, history=history)

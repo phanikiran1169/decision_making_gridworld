@@ -27,7 +27,7 @@ formatter = colorlog.ColoredFormatter(
 # Configure logging based on flag
 logger = logging.getLogger()
 console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
+# console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
 if args.enable_logs:
@@ -75,6 +75,7 @@ def simulate(problem, max_steps=100, planning_time=0.5, visualize=False):
         belief = problem.agent.belief
         state = belief.mpe()
         valid_actions = problem.agent.policy_model.get_all_actions(state, belief)
+        logging.info(f"Valid Actions: {valid_actions}")
 
         if not valid_actions:
             logging.ERROR("No valid actions available! Ending simulation.")
@@ -87,13 +88,16 @@ def simulate(problem, max_steps=100, planning_time=0.5, visualize=False):
         next_state, reward = problem.env.state_transition(action, execute=True)
 
         # Get observation and update belief
+        logging.info(f"Get observation and update current belief")
         observation = problem.env.provide_observation(problem.agent.observation_model, action)
-        problem.agent.update_belief(action, observation)
+        problem.agent.clear_history()
+        problem.agent.update_history(action, observation)
+        problem.agent.belief.update(action, observation)
 
         logging.info(f"Action Taken: {action}")
         logging.info(f"Observation Received: {observation}")
         logging.info(f"Reward Gained: {reward}")
-
+        logging.info(f"Current state - {problem.env.cur_state}")
         # Check terminal condition
         if problem.env.in_terminal_state():
             logging.info("Goal reached! Ending simulation.")
@@ -106,7 +110,7 @@ if __name__ == '__main__':
     goal_pose = (2, 1)
 
     # Optional prior knowledge about obstacles (uniformly uncertain if not provided)
-    obstacle_prior = {(1, 0): 0.5}  # or specify {(x, y): probability}
+    obstacle_prior = {(1, 0): 0.0, (2, 0): 0.0, (1, 1): 0.0}  # or specify {(x, y): probability}
 
     problem = GridWorldPOMDP(grid_size, init_evader_pose, goal_pose, obstacle_prior=obstacle_prior)
 
