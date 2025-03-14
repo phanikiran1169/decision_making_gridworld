@@ -62,7 +62,7 @@ def simulate(problem, max_steps=100, planning_time=0.5, visualize=False):
         max_depth=1,
         discount_factor=0.95,
         planning_time=planning_time,
-        exploration_const=1,
+        exploration_const=10,
         rollout_policy=problem.agent.policy_model
     )
 
@@ -71,21 +71,12 @@ def simulate(problem, max_steps=100, planning_time=0.5, visualize=False):
     for step in range(max_steps):
         logging.info(f"\n[STEP {step+1}] ------------------------")
 
-        # Get valid actions ONCE before planning
-        belief = problem.agent.belief
-        state = belief.mpe()
-        valid_actions = problem.agent.policy_model.get_all_actions(state, belief)
-        logging.info(f"Valid Actions: {valid_actions}")
-
-        if not valid_actions:
-            logging.ERROR("No valid actions available! Ending simulation.")
-            break
-
         # Plan once using POUCT
         action = planner.plan(problem.agent)
 
         # Execute state transition ONCE
         next_state, reward = problem.env.state_transition(action, execute=True)
+        total_reward += reward
 
         # Get observation and update belief
         logging.info(f"Get observation and update current belief")
@@ -97,7 +88,9 @@ def simulate(problem, max_steps=100, planning_time=0.5, visualize=False):
         logging.info(f"Action Taken: {action}")
         logging.info(f"Observation Received: {observation}")
         logging.info(f"Reward Gained: {reward}")
+        logging.info(f"Total Reward: {total_reward}")
         logging.info(f"Current state - {problem.env.cur_state}")
+        
         # Check terminal condition
         if problem.env.in_terminal_state():
             logging.info("Goal reached! Ending simulation.")
@@ -114,4 +107,4 @@ if __name__ == '__main__':
 
     problem = GridWorldPOMDP(grid_size, init_evader_pose, goal_pose, obstacle_prior=obstacle_prior)
 
-    simulate(problem, max_steps=1, planning_time=0.5)
+    simulate(problem, max_steps=10, planning_time=0.5)

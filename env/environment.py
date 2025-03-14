@@ -36,14 +36,6 @@ class GridWorldEnvironment(pomdp_py.Environment):
             return next_state, reward
         else:
             return next_state, reward
-        
-    # def apply_transition(self, next_state):
-    #     """
-    #     Updates the environment's state to the given next_state.
-    #     This ensures that the agent progresses in the environment.
-    #     """
-    #     logging.info(f"[Applying transition. Old state: {self.state} -> New state: {next_state}")
-    #     self._state = next_state
 
     def in_terminal_state(self):
         """Returns True if the agent has reached the goal."""
