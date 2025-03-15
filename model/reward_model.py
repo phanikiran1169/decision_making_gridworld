@@ -37,15 +37,15 @@ class GridWorldRewardModel(pomdp_py.RewardModel):
         # Handle FindAction
         if isinstance(action, FindAction):
             if state.evader.pose == state.evader.goal_pose:
-                logging.info("FindAction successful! Reward = 100")
+                logging.debug("FindAction successful! Reward = 100")
                 return self.GOAL_REWARD  # Success
             else:
-                logging.info("FindAction failed. Penalty = -1")
+                logging.debug("FindAction failed. Penalty = -1")
                 return self.MOVE_PENALTY  # Small penalty for incorrect FindAction
 
         # Handle LookAction
         if isinstance(action, LookAction):
-            logging.info("LookAction taken. Penalty = -1")
+            logging.debug("LookAction taken. Penalty = -1")
             return self.MOVE_PENALTY  # Small penalty for using LookAction
 
         # Handle MotionActions
@@ -54,12 +54,12 @@ class GridWorldRewardModel(pomdp_py.RewardModel):
 
             # Check if reached the goal
             if evader_next_pos == next_state.evader.goal_pose:
-                logging.info("Goal reached! Reward = 100")
+                logging.debug("Goal reached! Reward = 100")
                 return self.GOAL_REWARD
 
             # Check collision with obstacle
             if next_state.obstacle_at(evader_next_pos):
-                logging.warning("Obstacle hit! Heavy penalty (-25)")
+                logging.debuging("Obstacle hit! Heavy penalty (-25)")
                 return self.OBSTACLE_PENALTY
 
             # Regular movement penalty

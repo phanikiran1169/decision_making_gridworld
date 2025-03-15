@@ -26,7 +26,7 @@ class GridWorldBelief(pomdp_py.OOBelief):
     def _initialize_obstacle_beliefs(self, obstacle_prior):
         """Initializes beliefs for obstacles, excluding evader and goal positions."""
         beliefs = {}
-        logging.info(f"obstacle prior in init belief method - {obstacle_prior}")
+        logging.debug(f"obstacle prior in init belief method - {obstacle_prior}")
         for x in range(self.grid_width):
             for y in range(self.grid_height):
                 pos = (x, y)    
@@ -37,7 +37,7 @@ class GridWorldBelief(pomdp_py.OOBelief):
                 obs_id = f"obstacle_{x}_{y}"
                 beliefs[obs_id] = pomdp_py.Histogram({pos: prior_prob})
 
-        logging.info(f"Belief - {beliefs['obstacle_0_1'].histogram.get((0,1))}")
+        logging.debug(f"Belief - {beliefs['obstacle_0_1'].histogram.get((0,1))}")
         return beliefs
 
     def update(self, action, observation):
@@ -59,19 +59,19 @@ class GridWorldBelief(pomdp_py.OOBelief):
             for obj_id, pos in mpe_state.object_states.items()
             if obj_id != 'evader' and obj_id.startswith("obstacle") and self.object_beliefs[obj_id].histogram.get(pos, 0.0) > 0.0
         }
-        logging.info(f"Most probable GridWorldState - {obstacles}")
+        logging.debug(f"Most probable GridWorldState - {obstacles}")
         return GridWorldState(evader, obstacles)
     
     def random(self, **kwargs):
         """Samples a random GridWorldState."""
-        logging.info("GridWorldBelief - Random")
+        logging.debug("GridWorldBelief - Random")
         random_state = {}
         for obj_id, belief in self.object_beliefs.items():
             if isinstance(belief, pomdp_py.Histogram):
                 if sum(belief.histogram.values()) > 0:  # If there is at least one valid sample
                     random_state[obj_id] = belief.random()
                 elif obj_id.startswith("obstacle"):  # If it is an obstacle with zero probability, remove it
-                    # logging.warning(f"Removing {obj_id} from belief due to zero probability mass.")
+                    # logging.debuging(f"Removing {obj_id} from belief due to zero probability mass.")
                     pass
                 else:
                     random_state[obj_id] = belief.mpe()  # Default to MPE for evader
@@ -84,5 +84,5 @@ class GridWorldBelief(pomdp_py.OOBelief):
             if obj_id != 'evader' and obj_id.startswith("obstacle")
         }
 
-        logging.info(f"Random GridWorldState - {GridWorldState(evader, obstacles)}")
+        logging.debug(f"Random GridWorldState - {GridWorldState(evader, obstacles)}")
         return GridWorldState(evader, obstacles)    

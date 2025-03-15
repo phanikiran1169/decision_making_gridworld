@@ -20,7 +20,7 @@ class GridWorldEnvironment(pomdp_py.Environment):
         reward_model = GridWorldRewardModel(robot_id='evader')
         self.observation_model = GridWorldObservationModel(grid_size)
         super().__init__(init_state, transition_model, reward_model)
-        logging.info(f"[Environment initialized with state: {init_state}")
+        logging.debug(f"[Environment initialized with state: {init_state}")
         # self.policy_model = GridWorldPolicyModel(grid_size)
 
 
@@ -28,11 +28,11 @@ class GridWorldEnvironment(pomdp_py.Environment):
         """Execute action and optionally apply it to update state"""
         next_state = self.transition_model.sample(self.state, action)
         reward = self.reward_model.sample(self.state, action, next_state)
-        logging.info(f"[Transitioning from {self.state} using {action} to {next_state}")
+        logging.debug(f"[Transitioning from {self.state} using {action} to {next_state}")
 
         if execute:
             self.apply_transition(next_state)
-            logging.info(f"[Applied transition. New state: {self.state}")
+            logging.debug(f"[Applied transition. New state: {self.state}")
             return next_state, reward
         else:
             return next_state, reward
@@ -41,11 +41,11 @@ class GridWorldEnvironment(pomdp_py.Environment):
         """Returns True if the agent has reached the goal."""
         evader_pos = self.state.evader.pose
         if evader_pos == self.state.evader.goal_pose:
-            logging.info("Agent has reached the goal! Terminating simulation.")
+            logging.debug("Agent has reached the goal! Terminating simulation.")
             return True
         return False
     
     def provide_observation(self, observation_model, action):
         """Uses the observation model to generate an observation based on the current state."""
-        logging.info(f"Current state in observation model - {self.state}")
+        logging.debug(f"Current state in observation model - {self.state}")
         return observation_model.sample(self.state, action)

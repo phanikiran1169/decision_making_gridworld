@@ -20,14 +20,14 @@ class GridWorldTransitionModel(pomdp_py.TransitionModel):
 
     def sample(self, state, action):
         # Deterministic, simply returns argmax
-        logging.info("GridWorldTransitionModel - Sample")
+        logging.debug("GridWorldTransitionModel - Sample")
         return self.argmax(state, action)
 
     def argmax(self, state, action):
         next_state = copy.deepcopy(state)
 
         if state.evader.pose == state.evader.goal_pose:
-            logging.info("Agent reached the goal. No state updates needed.")
+            logging.debug("Agent reached the goal. No state updates needed.")
             return state
 
         if isinstance(action, MotionAction):
@@ -35,14 +35,14 @@ class GridWorldTransitionModel(pomdp_py.TransitionModel):
             dx, dy = action.motion
             intended_pos = (current_pos[0] + dx, current_pos[1] + dy)
 
-            logging.info(f"[Checking transition: {current_pos} -> {intended_pos}")
+            logging.debug(f"[Checking transition: {current_pos} -> {intended_pos}")
 
             if next_state.within_bounds(intended_pos, (self.grid_width, self.grid_height)):
                 if next_state.obstacle_at(intended_pos):
-                    logging.info(f"[Obstacle at {intended_pos}, staying at {current_pos}")
+                    logging.debug(f"[Obstacle at {intended_pos}, staying at {current_pos}")
                     return state  # Stay in place if blocked
                 else:
-                    logging.info(f"[Moving to {intended_pos}")
+                    logging.debug(f"[Moving to {intended_pos}")
                     next_state.object_states["evader"] = EvaderState(
                         agent_id="evader",
                         pose=intended_pos,
@@ -50,15 +50,15 @@ class GridWorldTransitionModel(pomdp_py.TransitionModel):
                     )
 
         elif isinstance(action, LookAction):
-            logging.info(f"[LookAction at {state.evader.pose}. No movement occurs.")
+            logging.debug(f"[LookAction at {state.evader.pose}. No movement occurs.")
             return state  # No movement, but observation will update belief
 
         elif isinstance(action, FindAction):
             if state.evader.pose == state.evader.goal_pose:
-                logging.info("FindAction successful! Goal reached.")
+                logging.debug("FindAction successful! Goal reached.")
                 return state  # Reward will be handled in the reward model
             else:
-                logging.info("FindAction failed. Staying in place.")
+                logging.debug("FindAction failed. Staying in place.")
                 return state  # Stay in place, but penalty applies
 
         return next_state

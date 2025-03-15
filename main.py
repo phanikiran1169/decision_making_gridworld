@@ -107,4 +107,4 @@ if __name__ == '__main__':
 
     problem = GridWorldPOMDP(grid_size, init_evader_pose, goal_pose, obstacle_prior=obstacle_prior)
 
-    simulate(problem, max_steps=10, planning_time=0.5)
+    simulate(problem, max_steps=50, planning_time=0.5)

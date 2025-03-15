@@ -16,11 +16,11 @@ class GridWorldPolicyModel(pomdp_py.RolloutPolicy):
 
     def sample(self, state, **kwargs):
         """Selects the best action based on a heuristic approach."""
-        logging.info("GridWorldPolicyModel - Sample")
+        logging.debug("GridWorldPolicyModel - Sample")
         valid_actions = self.get_all_actions(state, kwargs.get("belief", None), kwargs.get("history", None))
 
         if not valid_actions:
-            logging.info("No valid actions available. Defaulting to LookAction.")
+            logging.debug("No valid actions available. Defaulting to LookAction.")
             return LookAction()
 
         # Prioritize FindAction if belief about goal is high
@@ -63,31 +63,31 @@ class GridWorldPolicyModel(pomdp_py.RolloutPolicy):
 
     def get_all_actions(self, state=None, belief=None, history=None):
         """Ensures the agent always has actions, including Look & Find"""
-        logging.info("GridWorldPolicyModel - get_all_actions")
+        logging.debug("GridWorldPolicyModel - get_all_actions")
         if state is None:
             return ALL_MOTION_ACTIONS + [LookAction()] + [FindAction()]
 
         valid_actions = []
         evader_pos = state.evader.pose
 
-        logging.info(f"[Evaluating actions for state: {state}")
-        logging.error(f"history - {history}")
+        logging.debug(f"[Evaluating actions for state: {state}")
+        logging.debug(f"history - {history}")
 
         # Check valid motion actions
         for action in ALL_MOTION_ACTIONS:
             dx, dy = action.motion
             next_pos = (evader_pos[0] + dx, evader_pos[1] + dy)
 
-            # logging.info(f"[Checking move {action}: {evader_pos} -> {next_pos}")
+            # logging.debug(f"[Checking move {action}: {evader_pos} -> {next_pos}")
 
             # Skip out-of-bounds moves
             if not state.within_bounds(next_pos, (self.grid_width, self.grid_height)):
-                logging.info(f"[Move {action} out of bounds.")
+                logging.debug(f"[Move {action} out of bounds.")
                 continue
 
             # Skip if obstacle
             if state.obstacle_at(next_pos):
-                logging.info(f"[Obstacle detected at {next_pos}, skipping move {action}.")
+                logging.debug(f"[Obstacle detected at {next_pos}, skipping move {action}.")
                 continue
 
             valid_actions.append(action)
@@ -96,7 +96,7 @@ class GridWorldPolicyModel(pomdp_py.RolloutPolicy):
         valid_actions.append(LookAction())
         valid_actions.append(FindAction())
 
-        logging.info(f"[Final Available Actions: {valid_actions}")
+        logging.debug(f"[Final Available Actions: {valid_actions}")
         return valid_actions
         
     def rollout(self, state, history=None):
