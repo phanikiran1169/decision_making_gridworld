@@ -1,69 +1,84 @@
 import logging
 import pomdp_py
-from description.action import MotionAction, LookAction, FindAction
+from domain.action import MotionAction, LookAction, FindAction
 
 
-class GridWorldRewardModel(pomdp_py.RewardModel):
+class MosRewardModel(pomdp_py.RewardModel):
+    def __init__(self, target_objects, big=1000, small=1, robot_id=None):
+        """
+        robot_id (int): This model is the reward for one agent (i.e. robot),
+                        If None, then this model could be for the environment.
+        target_objects (set): a set of objids for target objects.
+        """
+        self._robot_id = robot_id
+        self.big = big
+        self.small = small
+        self._target_objects = target_objects
+
+    def probability(
+        self, reward, state, action, next_state, normalized=False, **kwargs
+    ):
+        if reward == self._reward_func(state, action):
+            return 1.0
+        else:
+            return 0.0
+
+    def sample(self, state, action, next_state, normalized=False, robot_id=None):
+        # deterministic
+        return self._reward_func(state, action, next_state, robot_id=robot_id)
+
+    def argmax(self, state, action, next_state, normalized=False, robot_id=None):
+        """Returns the most likely reward"""
+        return self._reward_func(state, action, next_state, robot_id=robot_id)
+
+
+class GoalRewardModel(MosRewardModel):
     """
-    Reward model for the evader agent in a grid world.
-
-    Rewards:
-        -1 for regular movement
-        -25 for collision with obstacle
-        +100 for reaching goal
+    This is a reward where the agent gets reward only for detect-related actions.
     """
 
-    MOVE_PENALTY = -1
-    OBSTACLE_PENALTY = -25
-    GOAL_REWARD = 100
+    def _reward_func(self, state, action, next_state, robot_id=None):
+        if robot_id is None:
+            assert (
+                self._robot_id is not None
+            ), "Reward must be computed with respect to one robot."
+            robot_id = self._robot_id
 
-    def __init__(self, robot_id):
-        self.robot_id = robot_id
+        reward = 0
 
-    def probability(self, reward, state, action, next_state, normalized=False):
-        """Deterministic reward model"""
-        actual_reward = self._reward_func(state, action, next_state)
-        return 1.0 if reward == actual_reward else 0.0
-
-    def sample(self, state, action, next_state, normalized=False):
-        """Returns deterministic reward"""
-        return self._reward_func(state, action, next_state)
-
-    def argmax(self, state, action, next_state, normalized=False, **kwargs):
-        """Returns deterministic reward"""
-        return self._reward_func(state, action, next_state)
-
-    def _reward_func(self, state, action, next_state):
-        # Handle FindAction
-        if isinstance(action, FindAction):
-            if state.evader.pose == state.evader.goal_pose:
-                logging.debug("FindAction successful! Reward = 100")
-                return self.GOAL_REWARD  # Success
+        # If the robot has caught the object
+        for objid in state.object_states:
+            if state.object_states[objid].objclass == "obstacle":
+                if state.object_states[objid]["pose"] == state.object_states[robot_id]["pose"]:
+                    reward -= self.big
+                else:
+                    pass
+            elif state.object_states[objid].objclass == "target":
+                if state.object_states[objid]["pose"] == state.object_states[robot_id]["pose"]:
+                    return 0  # no reward or penalty; the task is finished
+                else:
+                    pass
             else:
-                logging.debug("FindAction failed. Penalty = -1")
-                return self.MOVE_PENALTY  # Small penalty for incorrect FindAction
+                pass
 
-        # Handle LookAction
-        if isinstance(action, LookAction):
-            logging.debug("LookAction taken. Penalty = -1")
-            return self.MOVE_PENALTY  # Small penalty for using LookAction
-
-        # Handle MotionActions
         if isinstance(action, MotionAction):
-            evader_next_pos = next_state.evader.pose
-
-            # Check if reached the goal
-            if evader_next_pos == next_state.evader.goal_pose:
-                logging.debug("Goal reached! Reward = 100")
-                return self.GOAL_REWARD
-
-            # Check collision with obstacle
-            if next_state.obstacle_at(evader_next_pos):
-                logging.debuging("Obstacle hit! Heavy penalty (-25)")
-                return self.OBSTACLE_PENALTY
-
-            # Regular movement penalty
-            return self.MOVE_PENALTY
-
-        # Default case (should not happen)
-        return 0
+            reward = reward - self.small - action.distance_cost
+        elif isinstance(action, LookAction):
+            reward = reward - self.small
+        elif isinstance(action, FindAction):
+            if state.object_states[robot_id]["camera_direction"] is None:
+                # The robot didn't look before detect. So nothing is in the field of view.
+                reward -= self.big
+            else:
+                # transition function should've taken care of the detection.
+                new_objects_count = len(
+                    set(next_state.object_states[robot_id].objects_found)
+                    - set(state.object_states[robot_id].objects_found)
+                )
+                if new_objects_count == 0:
+                    # No new detection. "detect" is a bad action.
+                    reward -= self.big
+                else:
+                    # New detection. Award.
+                    reward += self.big
+        return reward

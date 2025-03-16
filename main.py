@@ -3,8 +3,8 @@ import argparse
 import colorlog
 
 import pomdp_py
-from description.agent import GridWorldAgent
-from description.action import ALL_MOTION_ACTIONS
+from agent.agent import GridWorldAgent
+from domain.action import ALL_MOTION_ACTIONS
 from env.environment import GridWorldEnvironment
 
 # Parse command-line arguments

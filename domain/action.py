@@ -3,6 +3,16 @@ import pomdp_py
 # Grid step size
 STEP_SIZE = 1
 
+EAST = (STEP_SIZE, 0)
+WEST = (-STEP_SIZE, 0)
+NORTH = (0, STEP_SIZE)
+SOUTH = (0, -STEP_SIZE)
+
+NORTHEAST = (STEP_SIZE, STEP_SIZE)
+NORTHWEST = (-STEP_SIZE, STEP_SIZE)
+SOUTHEAST = (STEP_SIZE, -STEP_SIZE)
+SOUTHWEST = (-STEP_SIZE, -STEP_SIZE)
+
 class Action(pomdp_py.Action):
     """Base Action class."""
     def __init__(self, name):
@@ -27,10 +37,6 @@ class Action(pomdp_py.Action):
 
 
 class MotionAction(Action):
-    EAST = (STEP_SIZE, 0)
-    WEST = (-STEP_SIZE, 0)
-    NORTH = (0, STEP_SIZE)
-    SOUTH = (0, -STEP_SIZE)
 
     VALID_MOTIONS = {
         "east": EAST,
@@ -63,10 +69,10 @@ class MotionAction(Action):
 
 
 # Explicit instances for easier usage
-MoveEast = MotionAction(MotionAction.EAST)
-MoveWest = MotionAction(MotionAction.WEST)
-MoveNorth = MotionAction(MotionAction.NORTH)
-MoveSouth = MotionAction(MotionAction.SOUTH)
+MoveEast = MotionAction(EAST)
+MoveWest = MotionAction(WEST)
+MoveNorth = MotionAction(NORTH)
+MoveSouth = MotionAction(SOUTH)
 
 # List of all movement actions
 ALL_MOTION_ACTIONS = [MoveEast, MoveWest, MoveNorth, MoveSouth]
@@ -79,3 +85,6 @@ class FindAction(Action):
     """Action to declare that an object has been found."""
     def __init__(self):
         super().__init__("find")
+
+Look = LookAction()
+Find = FindAction()

@@ -1,103 +1,45 @@
 import logging
 import pomdp_py
 import random
-from description.action import ALL_MOTION_ACTIONS, LookAction, FindAction, MotionAction
+from domain.action import ALL_MOTION_ACTIONS, Look, Find, FindAction, LookAction
 
-class GridWorldPolicyModel(pomdp_py.RolloutPolicy):
-    """
-    Simple rollout policy model for GridWorld pursuit scenario.
-    Randomly selects a valid movement action.
-    """
+class PolicyModel(pomdp_py.RolloutPolicy):
+    """Simple policy model. All actions are possible at any state."""
 
-    BELIEF_THRESHOLD_FOR_FIND = 0.9
-
-    def __init__(self, grid_size):
-        self.grid_width, self.grid_height = grid_size
+    def __init__(self, robot_id, grid_map=None):
+        """FindAction can only be taken after LookAction"""
+        self.robot_id = robot_id
+        self._grid_map = grid_map
 
     def sample(self, state, **kwargs):
-        """Selects the best action based on a heuristic approach."""
-        logging.debug("GridWorldPolicyModel - Sample")
-        valid_actions = self.get_all_actions(state, kwargs.get("belief", None), kwargs.get("history", None))
-
-        if not valid_actions:
-            logging.debug("No valid actions available. Defaulting to LookAction.")
-            return LookAction()
-
-        # Prioritize FindAction if belief about goal is high
-        if FindAction() in valid_actions:
-            return FindAction()
-
-        # Prioritize motion actions that move closer to the goal
-        best_action = self._choose_best_movement(state, valid_actions)
-        if best_action:
-            return best_action
-
-        # Otherwise, take LookAction as a fallback
-        return LookAction()
-
-    def _choose_best_movement(self, state, valid_actions):
-        """Chooses the best movement action based on distance to the goal."""
-        evader_pos = state.evader.pose
-        goal_x, goal_y = state.evader.goal_pose
-
-        def distance_to_goal(action):
-            dx, dy = action.motion
-            next_x, next_y = evader_pos[0] + dx, evader_pos[1] + dy
-            return abs(next_x - goal_x) + abs(next_y - goal_y)  # Manhattan Distance
-
-        movement_actions = [a for a in valid_actions if isinstance(a, MotionAction)]
-        if not movement_actions:
-            return None  # No valid movement actions
-
-        # Select the action that minimizes distance to the goal
-        return min(movement_actions, key=distance_to_goal)
-
+        return random.sample(self._get_all_actions(**kwargs), 1)[0]
 
     def probability(self, action, state, **kwargs):
-        valid_actions = self.get_all_actions(state)
-        return 1.0 / len(valid_actions) if action in valid_actions else 0.0
+        raise NotImplementedError
 
     def argmax(self, state, **kwargs):
-        # No meaningful argmax; returns random action for simplicity
-        return self.sample(state)
+        """Returns the most likely action"""
+        raise NotImplementedError
 
-    def get_all_actions(self, state=None, belief=None, history=None):
-        """Ensures the agent always has actions, including Look & Find"""
-        logging.debug("GridWorldPolicyModel - get_all_actions")
+    def get_all_actions(self, state=None, history=None):
+        """note: find can only happen after look."""
+        can_find = False
+        if history is not None and len(history) > 1:
+            # last action
+            last_action = history[-1][0]
+            if isinstance(last_action, LookAction):
+                can_find = True
+        find_action = [Find] if can_find else []
         if state is None:
-            return ALL_MOTION_ACTIONS + [LookAction()] + [FindAction()]
+            return ALL_MOTION_ACTIONS + [Look] + find_action
+        else:
+            if self._grid_map is not None:
+                valid_motions = self._grid_map.valid_motions(
+                    self.robot_id, state.pose(self.robot_id), ALL_MOTION_ACTIONS
+                )
+                return list(valid_motions) + [Look] + find_action
+            else:
+                return ALL_MOTION_ACTIONS + [Look] + find_action
 
-        valid_actions = []
-        evader_pos = state.evader.pose
-
-        logging.debug(f"[Evaluating actions for state: {state}")
-        logging.debug(f"history - {history}")
-
-        # Check valid motion actions
-        for action in ALL_MOTION_ACTIONS:
-            dx, dy = action.motion
-            next_pos = (evader_pos[0] + dx, evader_pos[1] + dy)
-
-            # logging.debug(f"[Checking move {action}: {evader_pos} -> {next_pos}")
-
-            # Skip out-of-bounds moves
-            if not state.within_bounds(next_pos, (self.grid_width, self.grid_height)):
-                logging.debug(f"[Move {action} out of bounds.")
-                continue
-
-            # Skip if obstacle
-            if state.obstacle_at(next_pos):
-                logging.debug(f"[Obstacle detected at {next_pos}, skipping move {action}.")
-                continue
-
-            valid_actions.append(action)
-
-        # Always include LookAction
-        valid_actions.append(LookAction())
-        valid_actions.append(FindAction())
-
-        logging.debug(f"[Final Available Actions: {valid_actions}")
-        return valid_actions
-        
     def rollout(self, state, history=None):
-        return self.sample(state, history=history)
+        return random.sample(self.get_all_actions(state=state, history=history), 1)[0]

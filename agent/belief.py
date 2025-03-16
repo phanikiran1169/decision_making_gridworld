@@ -1,9 +1,9 @@
 import logging
 import pomdp_py
 import random
-from description.state import GridWorldState, EvaderState, ObstacleState
-from description.action import LookAction
-from description.observation import CellObservation
+from domain.state import GridWorldState, EvaderState, ObstacleState
+from domain.action import LookAction
+from domain.observation import CellObservation
 
 class GridWorldBelief(pomdp_py.OOBelief):
     """
