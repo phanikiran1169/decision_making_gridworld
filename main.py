@@ -11,6 +11,13 @@ from agent_definition.agent import MosAgent
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Run GridWorld POMDP simulation.")
 parser.add_argument("--enable-logs", action="store_true", help="Enable logging output")
+parser.add_argument(
+    "--log-level",
+    type=str,
+    choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+    default="INFO",
+    help="Set logging level (default: WARNING)",
+)
 args = parser.parse_args()
 
 # Define color logging formatter
@@ -33,7 +40,7 @@ logger.addHandler(console_handler)
 
 if args.enable_logs:
     # Enable logging with INFO level
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 else:
     # Disable all logs by default
     logging.disable(logging.CRITICAL)
@@ -96,10 +103,10 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
         visualize: Whether to visualize each step (optional)
     """
     planner = pomdp_py.POUCT(
-        max_depth=1,
+        max_depth=10,
         discount_factor=0.99,
         planning_time=planning_time,
-        exploration_const=1,
+        exploration_const=100,
         rollout_policy=problem.agent.policy_model
     )
 
@@ -128,6 +135,9 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
         logging.info(f"Reward Gained: {reward}")
         logging.info(f"Total Reward: {total_reward}")
         logging.info(f"Current state - {problem.env.cur_state}")
+
+        logging.info(f"{set(problem.env.state.object_states[robot_id].objects_found)}")
+        logging.info(f"{problem.env.target_objects}")
         
         # Check terminal condition
         if (
@@ -172,4 +182,4 @@ if __name__ == '__main__':
 
     problem = GridWorldPOMDP(grid_size, robots, sensors, objects, obstacles, prior)
 
-    simulate(problem, max_steps=5, planning_time=0.5)
+    simulate(problem, max_steps=25, planning_time=0.5)

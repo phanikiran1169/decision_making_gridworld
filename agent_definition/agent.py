@@ -47,7 +47,7 @@ class MosAgent(pomdp_py.Agent):
             dim, self.sensor, self._object_ids, sigma=sigma, epsilon=epsilon
         )
         reward_model = GoalRewardModel(self._object_ids, robot_id=self.robot_id)
-        policy_model = PolicyModel(self.robot_id, grid_map=grid_map)
+        policy_model = PolicyModel(self.robot_id, grid_size=dim)
         super().__init__(
             init_belief,
             policy_model,

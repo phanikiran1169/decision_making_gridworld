@@ -38,6 +38,7 @@ class GoalRewardModel(MosRewardModel):
     """
 
     def _reward_func(self, state, action, next_state, robot_id=None):
+        logging.debug("GoalRewardModel - _reward_func")
         if robot_id is None:
             assert (
                 self._robot_id is not None
@@ -50,11 +51,13 @@ class GoalRewardModel(MosRewardModel):
         for objid in state.object_states:
             if state.object_states[objid].objclass == "obstacle":
                 if state.object_states[objid]["pose"] == state.object_states[robot_id]["pose"]:
+                    logging.debug(f"MotionAction - Collision. Large negative reward")
                     reward -= self.big
                 else:
                     pass
             elif state.object_states[objid].objclass == "target":
                 if state.object_states[objid]["pose"] == state.object_states[robot_id]["pose"]:
+                    logging.debug(f"Task finished. No reward")
                     return 0  # no reward or penalty; the task is finished
                 else:
                     pass
@@ -63,11 +66,14 @@ class GoalRewardModel(MosRewardModel):
 
         if isinstance(action, MotionAction):
             reward = reward - self.small - action.distance_cost
+            logging.debug(f"MotionAction. Small negative reward")
         elif isinstance(action, LookAction):
             reward = reward - self.small
+            logging.debug(f"LookAction. Small negative reward")
         elif isinstance(action, FindAction):
             if state.object_states[robot_id]["camera_direction"] is None:
                 # The robot didn't look before detect. So nothing is in the field of view.
+                logging.debug(f"FindAction failed - Large negative reward")
                 reward -= self.big
             else:
                 # transition function should've taken care of the detection.
@@ -77,8 +83,10 @@ class GoalRewardModel(MosRewardModel):
                 )
                 if new_objects_count == 0:
                     # No new detection. "detect" is a bad action.
+                    logging.debug(f"FindAction. No new objects detected - Large negative reward")
                     reward -= self.big
                 else:
                     # New detection. Award.
+                    logging.debug(f"FindAction. New objects detected - Large positive reward")
                     reward += self.big
         return reward
