@@ -40,10 +40,10 @@ logger.addHandler(console_handler)
 
 if args.enable_logs:
     # Enable logging with INFO level
-    logger.setLevel(logging.INFO)
+    logger.setLevel(getattr(logging, args.log_level))
 else:
     # Disable all logs by default
-    logging.disable(logging.CRITICAL)
+    logging.disable(logging.INFO)
 
 class GridWorldPOMDP(pomdp_py.OOPOMDP):
     """
