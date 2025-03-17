@@ -138,11 +138,13 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
 
         logging.info(f"{set(problem.env.state.object_states[robot_id].objects_found)}")
         logging.info(f"{problem.env.target_objects}")
+        logging.info(f"Robot pose - {problem.env.state.object_states[robot_id].pose}")
+        logging.info(f"Target pose - {problem.env.state.object_states[100].pose}")
         
         # Check terminal condition
         if (
-            set(problem.env.state.object_states[robot_id].objects_found)
-            == problem.env.target_objects
+            problem.env.state.object_states[robot_id].pose
+            == problem.env.state.object_states[100].pose
         ):
             logging.info("Goal reached! Ending simulation.")
             break
