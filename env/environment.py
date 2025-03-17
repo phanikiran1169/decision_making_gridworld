@@ -1,7 +1,7 @@
 import logging
 import copy
 import pomdp_py
-from domain.state import RobotState
+from domain.state import ObjectState
 from model.reward_model import GoalRewardModel
 from model.transition_model import MosTransitionModel
 
@@ -14,21 +14,32 @@ class MosEnvironment(pomdp_py.Environment):
             sensors (dict): Map from robot_id to sensor (Sensor);
                             Sensors equipped on robots; Used to determine
                             which objects should be marked as found.
-            obstacles (set): set of object ids that are obstacles;
-                                The set difference of all object ids then
-                                yields the target object ids."""
+            obstacles (set): set of object ids that represent objects in the environment 
+                            that can either be targets (objects to be reached) or avoidable 
+                            objects (objects to be avoided). The classification of an object 
+                            as a target or avoidable is determined by its `objclass`.
+        """
+
         self.width, self.length = dim
         self.sensors = sensors
         self.obstacles = obstacles
         transition_model = MosTransitionModel(
             dim, sensors, set(init_state.object_states.keys())
         )
-        # Target objects, a set of ids, are not robot nor obstacles
+        
+        # Initialize target and avoid objects
         self.target_objects = {
             objid
-            for objid in set(init_state.object_states.keys()) - self.obstacles
-            if not isinstance(init_state.object_states[objid], RobotState)
+            for objid, state in init_state.object_states.items()
+            if isinstance(state, ObjectState) and state.objclass == "target"
         }
+        
+        self.avoid_objects = {
+            objid
+            for objid, state in init_state.object_states.items()
+            if isinstance(state, ObjectState) and state.objclass == "avoid"
+        }
+
         reward_model = GoalRewardModel(self.target_objects)
         super().__init__(init_state, transition_model, reward_model)
 

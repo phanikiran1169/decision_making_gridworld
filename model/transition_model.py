@@ -18,7 +18,7 @@ class MosTransitionModel(pomdp_py.OOTransitionModel):
         """
         self._sensors = sensors
         transition_models = {
-            objid: StaticObjectTransitionModel(objid, epsilon=epsilon)
+            objid: ObjectTransitionModel(objid, epsilon=epsilon)
             for objid in object_ids
             if objid not in sensors
         }
@@ -39,8 +39,9 @@ class MosTransitionModel(pomdp_py.OOTransitionModel):
         return MosOOState(oostate.object_states)
 
 
-class StaticObjectTransitionModel(pomdp_py.TransitionModel):
-    """This model assumes the object is static."""
+class ObjectTransitionModel(pomdp_py.TransitionModel):
+    """
+    """
 
     def __init__(self, objid, epsilon=1e-9):
         self._objid = objid
@@ -54,14 +55,22 @@ class StaticObjectTransitionModel(pomdp_py.TransitionModel):
 
     def sample(self, state, action):
         """Returns next_object_state"""
-        logging.debug(f"StaticObjectTransitionModel - sample")
+        logging.debug(f"ObjectTransitionModel - sample")
         return self.argmax(state, action)
 
     def argmax(self, state, action):
         """Returns the most likely next object_state"""
-        logging.debug(f"StaticObjectTransitionModel - argmax")
+        logging.debug(f"ObjectTransitionModel - argmax")
+        logging.debug(f"Object Class - {state.object_states[self._objid].objclass}")
+        logging.debug(f"Object ID - {self._objid}")
+        if state.object_states[self._objid].objclass == "avoid":
+            return self.move(state, action)
+        else:
+            return copy.deepcopy(state.object_states[self._objid])
+    
+    def move(self, state, action):
+        logging.debug("ObjectTransitionModel - Move")
         return copy.deepcopy(state.object_states[self._objid])
-
 
 class RobotTransitionModel(pomdp_py.TransitionModel):
     """We assume that the robot control is perfect and transitions are deterministic."""
@@ -133,12 +142,12 @@ class RobotTransitionModel(pomdp_py.TransitionModel):
         elif isinstance(action, FindAction):
             robot_pose = state.pose(self._robot_id)
             observations = self._sensor.observe(robot_pose, state)
-            # Update "objects_found" set for target objects
+            # Update "objects_found" set for target and avoid objects
             observed_target_objects = {
                 objid
                 for objid in observations.objposes
                 if (
-                    state.object_states[objid].objclass == "target"
+                    state.object_states[objid].objclass != "obstacle"
                     and observations.objposes[objid] != ObjectObservation.NULL
                 )
             }

@@ -13,7 +13,8 @@ class MosAgent(pomdp_py.Agent):
         self,
         robot_id,
         init_robot_state,  # initial robot state (assuming robot state is observable perfectly)
-        object_ids,  # target object ids
+        target_ids,  # target object ids
+        avoid_ids,   # avoid object ids
         dim,  # tuple (w,l) of the width (w) and length (l) of the gridworld search space.
         sensor,  # Sensor equipped on the robot
         sigma=0.01,  # parameter for observation modelv6
@@ -23,8 +24,10 @@ class MosAgent(pomdp_py.Agent):
         num_particles=100,  # used if the belief representation is particles
         grid_map=None,
     ):  # GridMap used to avoid collision with obstacles (None if not provided)
+        
         self.robot_id = robot_id
-        self._object_ids = object_ids
+        self._target_ids = target_ids
+        self._avoid_ids = avoid_ids
         self.sensor = sensor
 
         # since the robot observes its own pose perfectly, it will have 100% prior
@@ -35,18 +38,19 @@ class MosAgent(pomdp_py.Agent):
         init_belief = initialize_belief(
             dim,
             self.robot_id,
-            self._object_ids,
+            self._target_ids,
+            self._avoid_ids,
             prior=prior,
             representation=belief_rep,
             num_particles=num_particles,
         )
         transition_model = MosTransitionModel(
-            dim, {self.robot_id: self.sensor}, self._object_ids
+            dim, {self.robot_id: self.sensor}, self._target_ids | self._avoid_ids
         )
         observation_model = MosObservationModel(
-            dim, self.sensor, self._object_ids, sigma=sigma, epsilon=epsilon
+            dim, self.sensor, self._target_ids | self._avoid_ids, sigma=sigma, epsilon=epsilon
         )
-        reward_model = GoalRewardModel(self._object_ids, robot_id=self.robot_id)
+        reward_model = GoalRewardModel(self._target_ids, robot_id=self.robot_id)
         policy_model = PolicyModel(self.robot_id, grid_size=dim)
         super().__init__(
             init_belief,

@@ -3,10 +3,9 @@ import pomdp_py
 
 class ObjectState(pomdp_py.ObjectState):
     def __init__(self, objid, objclass, pose):
-        if objclass != "obstacle" and objclass != "target":
+        if objclass not in ["obstacle", "target", "avoid"]:
             raise ValueError(
-                "Only allow object class to be either 'target' or 'obstacle'.Got %s"
-                % objclass
+                f"Only 'target', 'obstacle', or 'avoid' allowed. Got {objclass}"
             )
         super().__init__(objclass, {"pose": pose, "id": objid})
 

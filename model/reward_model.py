@@ -59,10 +59,17 @@ class GoalRewardModel(MosRewardModel):
                     pass
             elif state.object_states[objid].objclass == "target":
                 if state.object_states[objid]["pose"] == state.object_states[robot_id]["pose"]:
-                    logging.debug(f"Task finished. No reward")
-                    return 0  # no reward or penalty; the task is finished
+                    logging.debug(f"MotionAction - Reached goal. Large positive reward")
+                    reward += self.big  # no reward or penalty; the task is finished
                 else:
                     pass
+            elif state.object_states[objid].objclass == "avoid":
+                if state.object_states[objid]["pose"] == state.object_states[robot_id]["pose"]:
+                    logging.debug(f"MotionAction - Got caught. Large negative reward")
+                    reward -= self.big
+                else:
+                    pass
+            
             else:
                 pass
 

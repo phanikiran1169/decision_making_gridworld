@@ -51,6 +51,7 @@ class GridWorldPOMDP(pomdp_py.OOPOMDP):
     """
     def __init__(self, 
                  grid_size, 
+                 robot_id,
                  robots, 
                  sensors, 
                  objects, 
@@ -76,6 +77,7 @@ class GridWorldPOMDP(pomdp_py.OOPOMDP):
         agent = MosAgent(robot_id, 
                          env.state.object_states[robot_id], 
                          env.target_objects,
+                         env.avoid_objects,
                          grid_size,
                          env.sensors[robot_id],
                          sigma=sigma,
@@ -136,8 +138,6 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
         logging.info(f"Total Reward: {total_reward}")
         logging.info(f"Current state - {problem.env.cur_state}")
 
-        logging.info(f"{set(problem.env.state.object_states[robot_id].objects_found)}")
-        logging.info(f"{problem.env.target_objects}")
         logging.info(f"Robot pose - {problem.env.state.object_states[robot_id].pose}")
         logging.info(f"Target pose - {problem.env.state.object_states[100].pose}")
         
@@ -153,35 +153,42 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
 if __name__ == '__main__':
     grid_size = (6, 6)
     
-    robot_pose = (0, 0)
-    robot_id = 0
+    evader_pose = (0, 0)
+    evader_id = 0
+
+    chaser_pose = (4, 0)
+    chaser_id = 1
+
     robots = dict()
-    robots[robot_id] = RobotState(robot_id, robot_pose, (), None)
+    robots[evader_id] = RobotState(evader_id, evader_pose, (), None)
+    # robots[chaser_id] = RobotState(chaser_id, chaser_pose, (), None)
     
     sensors = dict()
-    sensors[robot_id] = SimpleCamera(robot_id, grid_size=grid_size)
+    sensors[evader_id] = SimpleCamera(evader_id, grid_size=grid_size)
+    # sensors[chaser_id] = SimpleCamera(chaser_id, grid_size=grid_size)
     
-    target_pose = (2, 5)
+    evader_target_pose = (2, 5)
 
     objects = dict()
     objects = {
         1000: ObjectState(1000, "obstacle", (1, 0)),
         1001: ObjectState(1001, "obstacle", (2, 0)),
         1002: ObjectState(1002, "obstacle", (2, 2)),
-        100: ObjectState(100, "target", target_pose)
+        100: ObjectState(100, "target", evader_target_pose),
+        chaser_id: ObjectState(chaser_id, "avoid", chaser_pose)
     }
 
     obstacles = dict()
     obstacles = {
         1000: ObjectState(1000, "obstacle", (1, 0)),
         1001: ObjectState(1001, "obstacle", (2, 0)),
-        1002: ObjectState(1002, "obstacle", (2, 2))
+        1002: ObjectState(1002, "obstacle", (2, 2)),
     }
     obstacles = set(obstacles)
 
 
     prior = None
 
-    problem = GridWorldPOMDP(grid_size, robots, sensors, objects, obstacles, prior)
+    problem = GridWorldPOMDP(grid_size, evader_id, robots, sensors, objects, obstacles, prior)
 
     simulate(problem, max_steps=25, planning_time=0.5)
