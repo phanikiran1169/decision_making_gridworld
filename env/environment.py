@@ -1,51 +1,73 @@
 import logging
 import copy
 import pomdp_py
-from description.state import GridWorldState, EvaderState, ObstacleState
-from description.action import MotionAction
-from model.observation_model import GridWorldObservationModel
-from model.reward_model import GridWorldRewardModel
-from model.transition_model import GridWorldTransitionModel
-from model.policy_model import GridWorldPolicyModel
+from domain.state import RobotState
+from model.reward_model import GoalRewardModel
+from model.transition_model import MosTransitionModel
 
-class GridWorldEnvironment(pomdp_py.Environment):
-    """
-    Deterministic Environment for GridWorld Evader scenario.
-    Combines Transition, Reward, and Observation Models.
-    """
+class MosEnvironment(pomdp_py.Environment):
+    """"""
 
-    def __init__(self, grid_size, init_state):
-        self.grid_width, self.grid_height = grid_size
-        transition_model = GridWorldTransitionModel(grid_size)
-        reward_model = GridWorldRewardModel(robot_id='evader')
-        self.observation_model = GridWorldObservationModel(grid_size)
+    def __init__(self, dim, init_state, sensors, obstacles=set({})):
+        """
+        Args:
+            sensors (dict): Map from robot_id to sensor (Sensor);
+                            Sensors equipped on robots; Used to determine
+                            which objects should be marked as found.
+            obstacles (set): set of object ids that are obstacles;
+                                The set difference of all object ids then
+                                yields the target object ids."""
+        self.width, self.length = dim
+        self.sensors = sensors
+        self.obstacles = obstacles
+        transition_model = MosTransitionModel(
+            dim, sensors, set(init_state.object_states.keys())
+        )
+        # Target objects, a set of ids, are not robot nor obstacles
+        self.target_objects = {
+            objid
+            for objid in set(init_state.object_states.keys()) - self.obstacles
+            if not isinstance(init_state.object_states[objid], RobotState)
+        }
+        reward_model = GoalRewardModel(self.target_objects)
         super().__init__(init_state, transition_model, reward_model)
-        logging.debug(f"[Environment initialized with state: {init_state}")
-        # self.policy_model = GridWorldPolicyModel(grid_size)
 
+    @property
+    def robot_ids(self):
+        return set(self.sensors.keys())
 
-    def state_transition(self, action, execute=True):
-        """Execute action and optionally apply it to update state"""
-        next_state = self.transition_model.sample(self.state, action)
-        reward = self.reward_model.sample(self.state, action, next_state)
-        logging.debug(f"[Transitioning from {self.state} using {action} to {next_state}")
+    def state_transition(self, action, execute=True, robot_id=None):
+        """state_transition(self, action, execute=True, **kwargs)
 
+        Overriding parent class function.
+        Simulates a state transition given `action`. If `execute` is set to True,
+        then the resulting state will be the new current state of the environment.
+
+        Args:
+            action (Action): action that triggers the state transition
+            execute (bool): If True, the resulting state of the transition will
+                            become the current state.
+
+        Returns:
+            float or tuple: reward as a result of `action` and state
+            transition, if `execute` is True (next_state, reward) if `execute`
+            is False.
+
+        """
+        assert (
+            robot_id is not None
+        ), "state transition should happen for a specific robot"
+
+        next_state = copy.deepcopy(self.state)
+        next_state.object_states[robot_id] = self.transition_model[robot_id].sample(
+            self.state, action
+        )
+
+        reward = self.reward_model.sample(
+            self.state, action, next_state, robot_id=robot_id
+        )
         if execute:
             self.apply_transition(next_state)
-            logging.debug(f"[Applied transition. New state: {self.state}")
-            return next_state, reward
+            return reward
         else:
             return next_state, reward
-
-    def in_terminal_state(self):
-        """Returns True if the agent has reached the goal."""
-        evader_pos = self.state.evader.pose
-        if evader_pos == self.state.evader.goal_pose:
-            logging.debug("Agent has reached the goal! Terminating simulation.")
-            return True
-        return False
-    
-    def provide_observation(self, observation_model, action):
-        """Uses the observation model to generate an observation based on the current state."""
-        logging.debug(f"Current state in observation model - {self.state}")
-        return observation_model.sample(self.state, action)

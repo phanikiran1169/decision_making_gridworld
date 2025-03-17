@@ -12,19 +12,19 @@ class MosTransitionModel(pomdp_py.OOTransitionModel):
     not necessarily by each robot for planning.
     """
 
-    def __init__(self, dim, robot_ids, object_ids, epsilon=1e-9):
+    def __init__(self, dim, sensors, object_ids, epsilon=1e-9):
         """
 
         """
-        self.robot_ids = robot_ids
+        self._sensors = sensors
         transition_models = {
             objid: StaticObjectTransitionModel(objid, epsilon=epsilon)
             for objid in object_ids
-            if objid not in robot_ids
+            if objid not in sensors
         }
-        for robot_id in robot_ids:
+        for robot_id in sensors:
             transition_models[robot_id] = RobotTransitionModel(
-                robot_id, dim, epsilon=epsilon
+                sensors[robot_id], dim, epsilon=epsilon
             )
         super().__init__(transition_models)
 
@@ -62,12 +62,13 @@ class StaticObjectTransitionModel(pomdp_py.TransitionModel):
 class RobotTransitionModel(pomdp_py.TransitionModel):
     """We assume that the robot control is perfect and transitions are deterministic."""
 
-    def __init__(self, robot_id, dim, epsilon=1e-9):
+    def __init__(self, sensor, dim, epsilon=1e-9):
         """
         dim (tuple): a tuple (width, length) for the dimension of the world
         """
         # this is used to determine objects found for FindAction
-        self._robot_id = robot_id
+        self._sensor = sensor
+        self._robot_id = sensor.robot_id
         self._dim = dim
         self._epsilon = epsilon
 
@@ -104,6 +105,7 @@ class RobotTransitionModel(pomdp_py.TransitionModel):
 
     def argmax(self, state, action):
         """Returns the most likely next robot_state"""
+        logging.debug(f"RobotTransitionModel - argmax")
         if isinstance(state, RobotState):
             robot_state = state
         else:
@@ -126,7 +128,7 @@ class RobotTransitionModel(pomdp_py.TransitionModel):
             next_robot_state["camera_direction"] = action.name
         elif isinstance(action, FindAction):
             robot_pose = state.pose(self._robot_id)
-            observations = self.observe(robot_pose, state)
+            observations = self._sensor.observe(robot_pose, state)
             # Update "objects_found" set for target objects
             observed_target_objects = {
                 objid
@@ -143,40 +145,11 @@ class RobotTransitionModel(pomdp_py.TransitionModel):
 
     def sample(self, state, action):
         """Returns next_robot_state"""
+        logging.debug(f"RobotTransitionModel - sample")
         return self.argmax(state, action)
     
-    def observe(self, robot_pose, env_state):
-        objposes = {}
-
-        # Check visibility in all directions
-        directions = [NORTH, SOUTH, EAST, WEST, NORTHEAST, NORTHWEST, SOUTHEAST, SOUTHWEST]
-
-        # Initialize all objects as unseen
-        for objid in env_state.object_states:
-            objposes[objid] = ObjectObservation.NULL
-
-        # Check visibility in all 8 directions
-        for dx, dy in directions:
-            x, y = robot_pose  # Start from the robot's position
-
-            while True:
-                x += dx  # Move step-by-step in the direction
-                y += dy
-
-                # Stop if out of bounds
-                if not self.in_boundary((x, y), self._dim[0], self._dim[1]):
-                    break
-
-                # Check if (x, y) contains any object (obstacle, or target)
-                for objid, obj_state in env_state.object_states.items():
-                    if obj_state["pose"] == (x, y):  # Ensure correct pose access
-                        objposes[objid] = (x, y)  # Record visibility
-                        break  # Stop checking further in this direction (vision is blocked)
-
-        return MosOOObservation(objposes)  # Return observations
-    
-
-    def valid_pose(self, pose, width, length, state=None, check_collision=True, pose_objid=None):
+    @classmethod
+    def valid_pose(cls, pose, width, length, state=None, check_collision=True, pose_objid=None):
         """
         Returns True if the given `pose` (x,y) is a valid pose;
         If `check_collision` is True, then the pose is only valid
@@ -193,12 +166,10 @@ class RobotTransitionModel(pomdp_py.TransitionModel):
                         continue
                     if (x, y) == object_poses[objid]:
                         return False
-        return self.in_boundary(pose, width, length)
+        return cls.in_boundary(pose, width, length)
 
-    def in_boundary(self, pose, width, length):
-        # Check if in boundary
+    @staticmethod
+    def in_boundary(pose, width, length):
+        """Check if pose is within the world boundaries."""
         x, y = pose
-        if x >= 0 and x < width:
-            if y >= 0 and y < length:
-                return True
-        return False
+        return 0 <= x < width and 0 <= y < length
