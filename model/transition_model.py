@@ -29,10 +29,12 @@ class MosTransitionModel(pomdp_py.OOTransitionModel):
         super().__init__(transition_models)
 
     def sample(self, state, action, **kwargs):
+        logging.debug(f"MosTransitionModel - sample")
         oostate = pomdp_py.OOTransitionModel.sample(self, state, action, **kwargs)
         return MosOOState(oostate.object_states)
 
     def argmax(self, state, action, normalized=False, **kwargs):
+        logging.debug(f"MosTransitionModel - argmax")
         oostate = pomdp_py.OOTransitionModel.argmax(self, state, action, **kwargs)
         return MosOOState(oostate.object_states)
 
@@ -52,10 +54,12 @@ class StaticObjectTransitionModel(pomdp_py.TransitionModel):
 
     def sample(self, state, action):
         """Returns next_object_state"""
+        logging.debug(f"StaticObjectTransitionModel - sample")
         return self.argmax(state, action)
 
     def argmax(self, state, action):
         """Returns the most likely next object_state"""
+        logging.debug(f"StaticObjectTransitionModel - argmax")
         return copy.deepcopy(state.object_states[self._objid])
 
 

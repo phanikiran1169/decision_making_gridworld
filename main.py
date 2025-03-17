@@ -151,7 +151,7 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
 
 
 if __name__ == '__main__':
-    grid_size = (4, 4)
+    grid_size = (6, 6)
     
     robot_pose = (0, 0)
     robot_id = 0
@@ -161,7 +161,7 @@ if __name__ == '__main__':
     sensors = dict()
     sensors[robot_id] = SimpleCamera(robot_id, grid_size=grid_size)
     
-    target_pose = (3, 2)
+    target_pose = (2, 5)
 
     objects = dict()
     objects = {

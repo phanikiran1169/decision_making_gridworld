@@ -25,10 +25,12 @@ class MosRewardModel(pomdp_py.RewardModel):
 
     def sample(self, state, action, next_state, normalized=False, robot_id=None):
         # deterministic
+        logging.debug("MosRewardModel - sample")
         return self._reward_func(state, action, next_state, robot_id=robot_id)
 
     def argmax(self, state, action, next_state, normalized=False, robot_id=None):
         """Returns the most likely reward"""
+        logging.debug("MosRewardModel - argmax")
         return self._reward_func(state, action, next_state, robot_id=robot_id)
 
 

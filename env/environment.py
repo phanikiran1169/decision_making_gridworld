@@ -54,6 +54,7 @@ class MosEnvironment(pomdp_py.Environment):
             is False.
 
         """
+        logging.debug("MosEnvironment - state_transition")
         assert (
             robot_id is not None
         ), "state transition should happen for a specific robot"

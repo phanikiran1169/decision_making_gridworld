@@ -63,6 +63,7 @@ class ObjectObservationModel(pomdp_py.ObservationModel):
             next_state (State)
             action (Action)
         """
+        logging.debug("ObjectObservationModel - probability")
         if not isinstance(action, LookAction):
             # No observation should be received
             if observation.pose == ObjectObservation.NULL:
@@ -121,6 +122,7 @@ class ObjectObservationModel(pomdp_py.ObservationModel):
 
     def sample(self, next_state, action, **kwargs):
         """Returns observation"""
+        logging.debug("ObjectObservationModel - sample")
         if not isinstance(action, LookAction):
             # Not a look action. So no observation
             return ObjectObservation(self._objid, ObjectObservation.NULL)
@@ -139,6 +141,7 @@ class ObjectObservationModel(pomdp_py.ObservationModel):
         return ObjectObservation(self._objid, zi)
 
     def argmax(self, next_state, action, **kwargs):
+        logging.debug("ObjectObservationModel - argmax")
         # Obtain observation according to distribution.
         alpha, beta, gamma = self._compute_params(
             self._sensor.within_range(robot_pose, object_pose, next_state)

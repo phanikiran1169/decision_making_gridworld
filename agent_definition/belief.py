@@ -18,9 +18,11 @@ class MosOOBelief(pomdp_py.OOBelief):
         super().__init__(object_beliefs)
 
     def mpe(self, **kwargs):
+        logging.debug("MosOOBelief - mpe")
         return MosOOState(pomdp_py.OOBelief.mpe(self, **kwargs).object_states)
 
     def random(self, **kwargs):
+        logging.debug("MosOOBelief - random")
         return MosOOState(pomdp_py.OOBelief.random(self, **kwargs).object_states)
 
 
