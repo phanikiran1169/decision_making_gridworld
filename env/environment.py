@@ -47,7 +47,7 @@ class MosEnvironment(pomdp_py.Environment):
     def robot_ids(self):
         return set(self.sensors.keys())
 
-    def state_transition(self, action, execute=True, robot_id=None, chaser_id=None):
+    def state_transition(self, action, execute=True, robot_id=None, pursuer_id=None):
         """state_transition(self, action, execute=True, **kwargs)
 
         Overriding parent class function.
@@ -71,13 +71,10 @@ class MosEnvironment(pomdp_py.Environment):
         ), "state transition should happen for a specific robot"
 
         next_state = copy.deepcopy(self.state)
-        next_state.object_states[robot_id] = self.transition_model[robot_id].sample(
-            self.state, action
-        )
+        next_state.object_states[robot_id] = self.transition_model[robot_id].sample(self.state, action)
 
-        next_state.object_states[chaser_id] = self.transition_model[chaser_id].move(
-            self.state, action
-        )
+        if pursuer_id is not None:
+            next_state.object_states[pursuer_id] = self.transition_model[pursuer_id].move(self.state, action)
 
         reward = self.reward_model.sample(
             self.state, action, next_state, robot_id=robot_id

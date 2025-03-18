@@ -1,7 +1,8 @@
 import logging
 import argparse
 import colorlog
-
+import json
+import os
 import pomdp_py
 from domain.state import RobotState, ObjectState, MosOOState
 from env.environment import MosEnvironment
@@ -35,56 +36,100 @@ formatter = colorlog.ColoredFormatter(
 # Configure logging based on flag
 logger = logging.getLogger()
 console_handler = logging.StreamHandler()
-# console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
 if args.enable_logs:
-    # Enable logging with INFO level
     logger.setLevel(getattr(logging, args.log_level))
 else:
-    # Disable all logs by default
     logging.disable(logging.INFO)
+
+
+def load_environment_from_json(json_file):
+    """Loads environment details from a JSON file."""
+    try:
+        with open(json_file, 'r') as file:
+            data = json.load(file)
+        
+        # Check that all necessary keys are in the loaded JSON
+        required_keys = ['grid_size', 'evader', 'pursuer', 'target', 'obstacles']
+        for key in required_keys:
+            if key not in data:
+                raise KeyError(f"Missing required key: {key} in JSON file.")
+
+        grid_size = (data['grid_size']['rows'], data['grid_size']['cols'])
+        evader_pose = tuple(data['evader'])
+        pursuer_pose = tuple(data['pursuer'])
+        target_pose = tuple(data['target'])
+        obstacles = {i + 1000: ObjectState(i + 1000, "obstacle", tuple(obs)) for i, obs in enumerate(data['obstacles'])}
+
+        return grid_size, evader_pose, pursuer_pose, target_pose, obstacles
+
+    except FileNotFoundError:
+        logging.error(f"File {json_file} not found.")
+        raise
+    except json.JSONDecodeError:
+        logging.error(f"Error decoding JSON from the file: {json_file}. Please check the file format.")
+        raise
+    except KeyError as e:
+        logging.error(f"Missing key in JSON file: {e}")
+        raise
+    except Exception as e:
+        logging.error(f"An error occurred while loading the environment: {e}")
+        raise
+
 
 class GridWorldPOMDP(pomdp_py.OOPOMDP):
     """
     Defines the GridWorld Pursuit POMDP by combining the agent and environment.
     """
-    def __init__(self, 
-                 grid_size, 
-                 robot_id,
-                 robots, 
-                 sensors, 
-                 objects, 
-                 obstacles, 
-                 prior=None,
-                 sigma=0.01,
-                 epsilon=1,
-                 belief_rep="histogram",
-                 num_particles=100):
-        
-        init_state = MosOOState({**objects, **robots})
-        env = MosEnvironment(grid_size, init_state, sensors, obstacles=obstacles)
+    def __init__(self, grid_size, evader_pose, pursuer_pose, target_pose, obstacles):
+        # Define robot and object IDs here
+        self.evader_id = 1  # Evader ID
+        self.pursuer_id = 2  # Pursuer ID
+        self.target_id = 100  # Target ID
 
+        # Define robots (evader is a robot)
+        self.robots = {self.evader_id: RobotState(self.evader_id, evader_pose, (), None)}
+
+        # Define pursuer (avoid type object)
+        self.pursuer = {self.pursuer_id: ObjectState(self.pursuer_id, "avoid", pursuer_pose)}
+
+        # Define the target object
+        self.target = {self.target_id: ObjectState(self.target_id, "target", target_pose)}
+
+        # Define the obstacles
+        # self.objects = {self.evader_id: self.robots[self.evader_id], self.pursuer_id: self.pursuer[self.pursuer_id], self.target_id: self.target[self.target_id]}
+        self.obstacles = obstacles
+
+        # Initialize sensors
+        self.sensors = {self.evader_id: SimpleCamera(self.evader_id, grid_size=grid_size)}
+
+        # Initialize environment
+        init_state = MosOOState({**self.robots, **self.pursuer, **self.target, **self.obstacles})
+        env = MosEnvironment(grid_size, init_state, self.sensors, obstacles=set(obstacles.values()))
+
+        # Create the prior belief model
         prior = None
         if prior:
             prior = dict()
         else:
             prior = dict()
             for objid in env.target_objects:
-                        groundtruth_pose = env.state.pose(objid)
-                        prior[objid] = {groundtruth_pose: 1.0}
+                groundtruth_pose = env.state.pose(objid)
+                prior[objid] = {groundtruth_pose: 1.0}
         
-        agent = MosAgent(robot_id, 
-                         env.state.object_states[robot_id], 
+        # Initialize the agent
+        agent = MosAgent(self.evader_id, 
+                         env.state.object_states[self.evader_id], 
                          env.target_objects,
                          env.avoid_objects,
                          grid_size,
-                         env.sensors[robot_id],
-                         sigma=sigma,
-                         epsilon=epsilon,
-                         belief_rep=belief_rep,
+                         env.sensors[self.evader_id],
+                         sigma=0.01,
+                         epsilon=1,
+                         belief_rep="histogram",
                          prior=prior,
-                         num_particles=num_particles,
+                         num_particles=100,
                          grid_map=None)
         
         super().__init__(
@@ -94,7 +139,7 @@ class GridWorldPOMDP(pomdp_py.OOPOMDP):
         )
 
 
-def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=False):
+def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=False, results_folder="results"):
     """
     Runs the simulation loop for the GridWorld POMDP.
 
@@ -103,7 +148,20 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
         max_steps: Maximum number of steps for simulation
         planning_time: Time allowed for planning each step
         visualize: Whether to visualize each step (optional)
+        results_folder: Folder to store the results
     """
+    # Ensure the results folder exists
+    if not os.path.exists(results_folder):
+        os.makedirs(results_folder)
+
+    # Prepare the results list to store poses at each step
+    results = {
+        "grid_size": [problem.env.width,  problem.env.length],
+        "obstacles": [obstacle.pose for obstacle in problem.env.state.object_states.values() if isinstance(obstacle, ObjectState) and obstacle.objclass == "obstacle"],
+        "target": problem.env.state.object_states[problem.target_id].pose,  # Target pose
+        "steps": []
+    }
+
     planner = pomdp_py.POUCT(
         max_depth=10,
         discount_factor=0.99,
@@ -122,7 +180,7 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
         action = planner.plan(problem.agent)
 
         # Execute state transition ONCE
-        reward = problem.env.state_transition(action, execute=True, robot_id=robot_id, chaser_id=1)
+        reward = problem.env.state_transition(action, execute=True, robot_id=robot_id, pursuer_id=problem.pursuer_id)
         total_reward += reward
 
         # Get observation and update belief
@@ -138,58 +196,47 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
         logging.info(f"Total Reward: {total_reward}")
         logging.info(f"Current state - {problem.env.cur_state}")
 
-        logging.info(f"Evader pose - {problem.env.state.object_states[robot_id].pose}")
-        logging.info(f"Chaser pose - {problem.env.state.object_states[1].pose}")
-        logging.info(f"Target pose - {problem.env.state.object_states[100].pose}")
+        evader_pose = problem.env.state.object_states[problem.evader_id].pose
+        pursuer_pose = problem.env.state.object_states[problem.pursuer_id].pose
+        target_pose = problem.env.state.object_states[problem.target_id].pose
+
+        # Store the dynamic poses for each step
+        results["steps"].append({
+            "step": step + 1,
+            "evader_pose": evader_pose,
+            "pursuer_pose": pursuer_pose,
+            "target_pose": target_pose
+        })
+
+        logging.info(f"Evader pose - {evader_pose}")
+        logging.info(f"Pursuer pose - {pursuer_pose}")
+        logging.info(f"Target pose - {target_pose}")
         
         # Check terminal condition
-        if (
-            problem.env.state.object_states[robot_id].pose
-            == problem.env.state.object_states[100].pose
-        ):
+        if (evader_pose == target_pose):
             logging.info("Goal reached! Ending simulation.")
             break
+        if (pursuer_pose == evader_pose):
+            logging.info("Evader got caught! Ending simulation.")
+            break
+
+    # Save results to JSON file in the results folder
+    results_file = os.path.join(results_folder, "simulation_results.json")
+    with open(results_file, 'w') as file:
+        json.dump(results, file, indent=4)
+
+    logging.info(f"Simulation results saved to {results_file}")
 
 
 if __name__ == '__main__':
-    grid_size = (6, 6)
+    # Load the environment from the JSON file
+    grid_size, evader_pose, pursuer_pose, target_pose, obstacles = load_environment_from_json('env/environment.json')
+    logging.debug(f"grid_size - {grid_size}")
+    logging.debug(f"evader_pose - {evader_pose}")
+    logging.debug(f"pursuer_pose - {pursuer_pose}")
+    logging.debug(f"target_pose - {target_pose}")
+    logging.debug(f"obstacles - {obstacles}")
     
-    evader_pose = (0, 0)
-    evader_id = 0
-
-    chaser_pose = (4, 0)
-    chaser_id = 1
-
-    robots = dict()
-    robots[evader_id] = RobotState(evader_id, evader_pose, (), None)
-    # robots[chaser_id] = RobotState(chaser_id, chaser_pose, (), None)
-    
-    sensors = dict()
-    sensors[evader_id] = SimpleCamera(evader_id, grid_size=grid_size)
-    # sensors[chaser_id] = SimpleCamera(chaser_id, grid_size=grid_size)
-    
-    evader_target_pose = (2, 5)
-
-    objects = dict()
-    objects = {
-        1000: ObjectState(1000, "obstacle", (1, 0)),
-        1001: ObjectState(1001, "obstacle", (2, 0)),
-        1002: ObjectState(1002, "obstacle", (2, 2)),
-        100: ObjectState(100, "target", evader_target_pose),
-        chaser_id: ObjectState(chaser_id, "avoid", chaser_pose)
-    }
-
-    obstacles = dict()
-    obstacles = {
-        1000: ObjectState(1000, "obstacle", (1, 0)),
-        1001: ObjectState(1001, "obstacle", (2, 0)),
-        1002: ObjectState(1002, "obstacle", (2, 2)),
-    }
-    obstacles = set(obstacles)
-
-
-    prior = None
-
-    problem = GridWorldPOMDP(grid_size, evader_id, robots, sensors, objects, obstacles, prior)
+    problem = GridWorldPOMDP(grid_size, evader_pose, pursuer_pose, target_pose, obstacles)
 
     simulate(problem, max_steps=25, planning_time=0.5)
