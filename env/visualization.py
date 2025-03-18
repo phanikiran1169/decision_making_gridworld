@@ -1,7 +1,7 @@
 import logging
 import pygame
 import sys
-import json
+import csv
 from colors import *
 
 class GridEnv:
@@ -48,22 +48,30 @@ class GridEnv:
 
     def load_environment(self):
         """
-        @brief Loads the environment (obstacles, agent positions) from a JSON file.
+        @brief Loads the environment (obstacles, agent positions) from a CSV file.
         """
         if not self.env_file:
-            # No file provided, go to default settings
             self.set_default_environment()
             return
 
         try:
             with open(self.env_file, "r") as file:
-                data = json.load(file)
-                self.obstacles = set(tuple(obs) for obs in data["obstacles"])
-                self.evader = tuple(data["evader"])
-                self.pursuer = tuple(data["pursuer"])
-                self.target = tuple(data["target"]) if data.get("target") else None  # Convert to tuple if exists
+                reader = csv.reader(file)
+                header = next(reader)  # Skip the header row
+                row = next(reader)  # Read the data row
+
+                # Extract the grid size, agent positions, target, and obstacles
+                self.rows, self.cols = int(row[0]), int(row[1])
+                self.evader = (int(row[2]), int(row[3]))
+                self.pursuer = (int(row[4]), int(row[5]))
+                self.target = (int(row[6]), int(row[7])) if row[6] != 'None' else None
+
+                # Read obstacles dynamically (pairs of X, Y values)
+                self.obstacles = set()
+                for i in range(8, len(row), 2):  # Start at the 8th index for obstacles
+                    if row[i] != '' and row[i+1] != '':
+                        self.obstacles.add((int(row[i]), int(row[i+1])))
         except FileNotFoundError:
-            # If the file doesn't exist, go to default settings
             self.set_default_environment()
 
     def set_default_environment(self):
@@ -77,23 +85,41 @@ class GridEnv:
 
     def save_environment(self):
         """
-        @brief Saves the current environment (obstacles, agent positions, target, grid size) to a JSON file
+        @brief Saves the current environment (obstacles, agent positions, target, grid size) to a CSV file
         """
         if not self.env_file:
             return  # Do nothing if no file is provided
 
-        data = {
-            "grid_size": {"rows": self.rows, "cols": self.cols},  # Save grid size info
-            "obstacles": [list(obs) for obs in self.obstacles],  # Convert tuples to lists for JSON
-            "evader": list(self.evader),  # Convert tuple to list
-            "pursuer": list(self.pursuer),  # Convert tuple to list
-            "target": list(self.target) if self.target else None  # Convert tuple to list if target exists
-        }
+        # Prepare the data for CSV
+        grid_size = [self.rows, self.cols]
+        evader_position = list(self.evader)  # Convert tuple to list
+        pursuer_position = list(self.pursuer)  # Convert tuple to list
+        target_position = list(self.target) if self.target else [None, None]  # Convert tuple to list
 
-        with open(self.env_file, "w") as file:
-            # Use a 4-space indent for readability and separators to remove extra spaces between elements
-            json.dump(data, file, indent=4, separators=(',', ': '))
-            
+        # Flatten obstacle positions (x, y for each obstacle)
+        obstacles_flat = [coord for obs in self.obstacles for coord in obs]
+
+        # Combine all the data into one list
+        data = grid_size + evader_position + pursuer_position + target_position + obstacles_flat
+
+        # Header row (column names) - dynamically generated based on the number of obstacles
+        header = [
+            "Grid width", "Grid length", "Evader X", "Evader Y", "Pursuer X", "Pursuer Y", "Target X", "Target Y"
+        ]
+        
+        # Dynamically add obstacle columns based on the number of obstacles
+        header += [f"Obstacle{i+1} X" for i in range(len(self.obstacles))]
+        header += [f"Obstacle{i+1} Y" for i in range(len(self.obstacles))]
+
+        with open(self.env_file, "w", newline='') as file:
+            writer = csv.writer(file)
+
+            # Write the header
+            writer.writerow(header)
+
+            # Write the data
+            writer.writerow(data)
+
     def is_valid_move(self, new_pos):
         """
         @brief Checks if the move is valid
@@ -270,5 +296,5 @@ class GridEnv:
 
 # main
 if __name__ == "__main__":
-    env = GridEnv(env_file="environment.json")  # Load the environment from a JSON file
+    env = GridEnv(env_file="environment.csv")  # Load the environment from a JSON file
     env.run()
