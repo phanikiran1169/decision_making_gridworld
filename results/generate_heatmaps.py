@@ -68,24 +68,32 @@ def generate_heatmaps():
     for pursuer_x, pursuer_y in pursuer_positions_array:
         pursuer_heatmap[pursuer_y, pursuer_x] += 1  # Increment heatmap at the pursuer's position
     
+    # Define the common range for color scale normalization
+    # vmin = min(evader_heatmap.min(), pursuer_heatmap.min())
+    # vmax = max(evader_heatmap.max(), pursuer_heatmap.max())
+
     # Plot the heatmaps
     plt.figure(figsize=(12, 6))
     
     # Evader Heatmap
     plt.subplot(1, 2, 1)
     sns.heatmap(evader_heatmap, cmap="Blues", annot=False, cbar=True)
-    plt.title("Evader Path Contour")
+    plt.title("Evader")
     plt.xlabel("X Position")
     plt.ylabel("Y Position")
     plt.gca().invert_yaxis()
+    cbar = plt.gca().collections[0].colorbar
+    cbar.set_ticks([])
     
     # Pursuer Heatmap
     plt.subplot(1, 2, 2)
     sns.heatmap(pursuer_heatmap, cmap="Reds", annot=False, cbar=True)
-    plt.title("Pursuer Path Contour")
+    plt.title("Pursuer")
     plt.xlabel("X Position")
     plt.ylabel("Y Position")
     plt.gca().invert_yaxis()
+    cbar = plt.gca().collections[0].colorbar
+    cbar.set_ticks([])
     
     # Save the heatmaps as an image file
     plt.tight_layout()

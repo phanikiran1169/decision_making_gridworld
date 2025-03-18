@@ -177,14 +177,3 @@ if __name__ == "__main__":
                 renderer.generate_gif()
             else:
                 logging.warning(f"File {file_path} does not exist, skipping.")
-
-    # for run_number in range(1, 3):
-    #     env_file = os.path.join(results_folder, f"simulation_results_run_{run_number}.csv")
-    #     output_gif = os.path.join(results_folder, f"simulation_run_{run_number}.gif")
-        
-    #     if os.path.exists(env_file):
-    #         logging.info(f"Generating GIF for {env_file}...")
-    #         renderer = GridGifRenderer(env_file, output_gif)
-    #         renderer.generate_gif()
-    #     else:
-    #         logging.warning(f"File {env_file} does not exist, skipping.")
