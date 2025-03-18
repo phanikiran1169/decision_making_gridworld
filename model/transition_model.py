@@ -2,6 +2,7 @@ import logging
 import pomdp_py
 import copy
 import heapq
+import random
 from domain.action import *
 from domain.state import MosOOState, RobotState, ObjectState
 from domain.observation import ObjectObservation, MosOOObservation
@@ -112,8 +113,11 @@ class ObjectTransitionModel(pomdp_py.TransitionModel):
         path = a_star_search(current_pos, robot_pos, self._dim[0], self._dim[1], obstacles)
         
         if path:
-            # If a path is found, move to the next position in the path
-            next_obj_state["pose"] = path[0]
+            # If a path is found, move to the next position in the path with some randomness
+            if random.random() < 0.2:
+                next_obj_state["pose"] = current_pos
+            else:
+                next_obj_state["pose"] = path[0]
         else:
             # No path found, stay in the current position
             next_obj_state["pose"] = current_pos

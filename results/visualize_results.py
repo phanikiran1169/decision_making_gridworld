@@ -1,60 +1,46 @@
 import logging
 import pygame
-import sys
 import csv
 import numpy as np
 from colors import *  # Import your color definitions
-from PIL import Image  # For saving GIF
+from PIL import Image, ImageOps  # For saving and mirroring GIF
 
-class GridEnv:
+class GridGifRenderer:
     """
-    Grid-based environment simulation for two agents (Evader & Pursuer).
-    
-    The environment is loaded from a CSV file and visualized in Pygame.
-    Clicking the "Save Environment" button saves the animation as a GIF.
+    Generates a GIF animation of the simulation directly from a CSV file 
+    without displaying it in Pygame.
     """
 
-    def __init__(self, env_file):
+    def __init__(self, env_file, output_gif="simulation.gif"):
         """
-        Initializes the grid world environment.
+        Initializes the renderer.
 
         Args:
-            env_file (str): CSV file containing environment steps.
-        
-        Raises:
-            FileNotFoundError: If no CSV file is provided or the file does not exist.
+            env_file (str): CSV file containing simulation steps.
+            output_gif (str): Name of the output GIF file.
         """
         if not env_file:
-            raise FileNotFoundError("ERROR: No CSV file provided for environment initialization.")
+            raise FileNotFoundError("ERROR: No CSV file provided for simulation.")
 
         pygame.init()
         self.env_file = env_file
+        self.output_gif = output_gif
         self.steps = []  # Store all simulation steps
-        self.frames = []  # Store frames for GIF creation
+        self.frames = []  # Store frames for GIF
 
         self.load_environment()  # Load the environment from CSV
 
         # Grid and display settings (initialized AFTER reading CSV)
         self.cell_size = 40  # Keep cell size fixed
         self.width = self.cols * self.cell_size
-        self.height = self.rows * self.cell_size + 50  # Space for the Save button
-        
-        self.screen = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption("Grid World Simulation")
+        self.height = self.rows * self.cell_size
 
-        # Save Button UI
-        self.save_button_rect = pygame.Rect(self.width // 2 - 60, self.height - 40, 120, 30)
-
-        # Frame rate controller
-        self.clock = pygame.time.Clock()
+        # Create an off-screen Pygame surface (no display window)
+        self.screen = pygame.Surface((self.width, self.height))
 
     def load_environment(self):
         """
-        Loads the environment from a CSV file.
-
-        The CSV file contains:
-        - First row: Column headers
-        - Subsequent rows: Time steps with positions of evader, pursuer, target, and obstacles.
+        Loads the environment data from a CSV file.
 
         Raises:
             FileNotFoundError: If the CSV file is not found.
@@ -64,7 +50,7 @@ class GridEnv:
             with open(self.env_file, "r") as file:
                 reader = csv.reader(file)
                 header = next(reader)  # Read the header row
-                
+
                 # Validate header format
                 if not header or len(header) < 7:
                     raise ValueError("ERROR: CSV file format is incorrect. Expected at least 7 columns.")
@@ -83,9 +69,8 @@ class GridEnv:
                     }
                     self.steps.append(step)
 
-                # If no valid steps, raise an error
                 if not self.steps:
-                    raise ValueError("ERROR: CSV file does not contain valid environment data.")
+                    raise ValueError("ERROR: CSV file does not contain valid simulation data.")
 
                 # Infer grid size dynamically based on max coordinates
                 all_x = [step["evader"][0] for step in self.steps] + \
@@ -101,29 +86,17 @@ class GridEnv:
                 self.rows = max(all_x) + 1 if all_x else 7  # Default to 7x7 if empty
                 self.cols = max(all_y) + 1 if all_y else 7
 
-                # Initialize first step
-                self.current_step = 0
-                self.update_state()
-
         except FileNotFoundError:
             raise FileNotFoundError(f"ERROR: CSV file '{self.env_file}' not found.")
         except ValueError as e:
             raise ValueError(str(e))
 
-    def update_state(self):
+    def render_frame(self, step):
         """
-        Updates the simulation state based on the current step.
-        Ensures that evader, pursuer, target, and obstacles always exist.
-        """
-        step = self.steps[self.current_step]
-        self.evader = step["evader"]
-        self.pursuer = step["pursuer"]
-        self.target = step["target"]
-        self.obstacles = set(step["obstacles"])
+        Renders a single frame and stores it in the frame buffer.
 
-    def render(self):
-        """
-        Renders the grid world including agents, obstacles, and the target.
+        Args:
+            step (dict): Contains evader, pursuer, target, and obstacle positions.
         """
         self.screen.fill(WHITE)
         
@@ -134,73 +107,60 @@ class GridEnv:
                 pygame.draw.rect(self.screen, GRAY, rect, 1)
         
         # Draw obstacles (black squares)
-        for obs in self.obstacles:
+        for obs in step["obstacles"]:
             obs_rect = pygame.Rect(obs[1] * self.cell_size, obs[0] * self.cell_size, self.cell_size, self.cell_size)
             pygame.draw.rect(self.screen, BLACK, obs_rect)
 
         # Draw evader (blue circle)
-        evader_x, evader_y = self.evader[1] * self.cell_size, self.evader[0] * self.cell_size
+        evader_x, evader_y = step["evader"][1] * self.cell_size, step["evader"][0] * self.cell_size
         pygame.draw.circle(self.screen, BLUE, (evader_x + self.cell_size // 2, evader_y + self.cell_size // 2), self.cell_size // 2 - 5)
 
         # Draw pursuer (red circle)
-        pursuer_x, pursuer_y = self.pursuer[1] * self.cell_size, self.pursuer[0] * self.cell_size
+        pursuer_x, pursuer_y = step["pursuer"][1] * self.cell_size, step["pursuer"][0] * self.cell_size
         pygame.draw.circle(self.screen, RED, (pursuer_x + self.cell_size // 2, pursuer_y + self.cell_size // 2), self.cell_size // 2 - 5)
 
         # Draw target (light green circle)
-        if self.target:
-            target_x, target_y = self.target[1] * self.cell_size, self.target[0] * self.cell_size
+        if step["target"]:
+            target_x, target_y = step["target"][1] * self.cell_size, step["target"][0] * self.cell_size
             pygame.draw.circle(self.screen, LIGHTGREEN, (target_x + self.cell_size // 2, target_y + self.cell_size // 2), self.cell_size // 2 - 5)
 
-        # Draw Save Button
-        pygame.draw.rect(self.screen, GREEN, self.save_button_rect, border_radius=10)
-        pygame.draw.rect(self.screen, BLACK, self.save_button_rect, width=2, border_radius=10)
-        font = pygame.font.Font(None, 18)
-        text = font.render("Save Environment", True, BLACK)
-        text_rect = text.get_rect(center=self.save_button_rect.center)
-        self.screen.blit(text, text_rect)
-
-        # Capture frame for GIF
+        # Capture frame for GIF (FIX: Flip horizontally before saving)
         frame = pygame.surfarray.array3d(self.screen)
-        self.frames.append(np.rot90(frame, k=3))
-
-        pygame.display.flip()
+        flipped_frame = np.fliplr(frame)  # Flip the image horizontally
+        self.frames.append(np.rot90(flipped_frame, k=3))  # Rotate correctly
 
     def save_gif(self):
         """
-        Saves recorded frames as a GIF file.
+        Saves the generated frames as a GIF file.
         """
         if not self.frames:
             logging.warning("No frames to save.")
             return
 
         pil_images = [Image.fromarray(frame) for frame in self.frames]
-        pil_images[0].save("simulation.gif", save_all=True, append_images=pil_images[1:], optimize=True, duration=100, loop=0)
-        logging.info("Simulation saved as simulation.gif")
+        
+        # Apply horizontal flip to all frames before saving
+        pil_images = [ImageOps.mirror(img) for img in pil_images]
 
-    def run(self):
+        pil_images[0].save(self.output_gif, save_all=True, append_images=pil_images[1:], optimize=True, duration=250, loop=0)
+        logging.info(f"Simulation saved as {self.output_gif}")
+
+    def generate_gif(self):
         """
-        Runs the step-based simulation and updates the display.
-
-        Clicking "Save Environment" will save the simulation as a GIF.
+        Generates a GIF of the simulation by rendering all frames off-screen.
         """
-        running = True
+        logging.info("Generating GIF from simulation data...")
 
-        while running:
-            self.clock.tick(1)  # 1 step per second
+        for step in self.steps:
+            self.render_frame(step)  # Render each step
+        
+        self.save_gif()  # Save the generated frames as a GIF
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                if event.type == pygame.MOUSEBUTTONDOWN and self.save_button_rect.collidepoint(event.pos):
-                    self.save_gif()
-
-            self.update_state()
-            self.render()
-            self.current_step = (self.current_step + 1) % len(self.steps)
-
-        pygame.quit()
-        sys.exit()
+        logging.info("GIF generation complete.")
 
 if __name__ == "__main__":
-    env = GridEnv(env_file="simulation_results.csv")
-    env.run()
+    env_file = "simulation_results.csv"  # Provide the CSV file
+    output_gif = "simulation.gif"  # Output GIF filename
+
+    renderer = GridGifRenderer(env_file, output_gif)
+    renderer.generate_gif()
