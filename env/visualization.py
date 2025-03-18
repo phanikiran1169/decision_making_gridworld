@@ -12,14 +12,14 @@ class GridEnv:
     It supports placing/removing obstacles, saving/loading the environment, and running simulations
     """
 
-    def __init__(self, rows=15, cols=15, cell_size=40, env_file="environment.json"):
+    def __init__(self, rows=7, cols=7, cell_size=40, env_file=None):
         """
         @brief Initializes the environment with customizable grid size
         
-        @param rows Number of rows in the grid (default: 15)
-        @param cols Number of columns in the grid (default: 15)
+        @param rows Number of rows in the grid (default: 7)
+        @param cols Number of columns in the grid (default: 7)
         @param cell_size Size of each cell in pixels (default: 40)
-        @param env_file File to save/load environment settings
+        @param env_file File to save/load environment settings (default: None)
         """
         pygame.init()
         
@@ -37,7 +37,7 @@ class GridEnv:
         # File to save/load environment
         self.env_file = env_file
 
-        # Load environment settings
+        # Load environment settings, default if file is not found
         self.load_environment()
 
         # Save Environment Button
@@ -50,29 +50,50 @@ class GridEnv:
         """
         @brief Loads the environment (obstacles, agent positions) from a JSON file.
         """
+        if not self.env_file:
+            # No file provided, go to default settings
+            self.set_default_environment()
+            return
+
         try:
             with open(self.env_file, "r") as file:
                 data = json.load(file)
-                self.obstacles = set(tuple(obstacle) for obstacle in data["obstacles"])
-                self.evader = data["evader"]
-                self.pursuer = data["pursuer"]
+                self.obstacles = set(tuple(obs) for obs in data["obstacles"])
+                self.evader = tuple(data["evader"])
+                self.pursuer = tuple(data["pursuer"])
+                self.target = tuple(data["target"]) if data.get("target") else None  # Convert to tuple if exists
         except FileNotFoundError:
-            self.obstacles = set()
-            self.evader = [0, 0]  # Default evader position
-            self.pursuer = [self.rows - 1, self.cols - 1]  # Default pursuer position
+            # If the file doesn't exist, go to default settings
+            self.set_default_environment()
+
+    def set_default_environment(self):
+        """
+        @brief Sets default environment settings when no file is provided or file is not found
+        """
+        self.obstacles = set()
+        self.evader = (0, 0)  # Default evader position
+        self.pursuer = (self.rows - 1, self.cols - 1)  # Default pursuer position
+        self.target = None  # No target initially
 
     def save_environment(self):
         """
-        @brief Saves the current environment (obstacles, agent positions) to a JSON file
+        @brief Saves the current environment (obstacles, agent positions, target, grid size) to a JSON file
         """
-        data = {
-            "obstacles": list(self.obstacles),
-            "evader": self.evader,
-            "pursuer": self.pursuer
-        }
-        with open(self.env_file, "w") as file:
-            json.dump(data, file)
+        if not self.env_file:
+            return  # Do nothing if no file is provided
 
+        data = {
+            "grid_size": {"rows": self.rows, "cols": self.cols},  # Save grid size info
+            "obstacles": [list(obs) for obs in self.obstacles],  # Convert tuples to lists for JSON
+            "evader": list(self.evader),  # Convert tuple to list
+            "pursuer": list(self.pursuer),  # Convert tuple to list
+            "target": list(self.target) if self.target else None  # Convert tuple to list if target exists
+        }
+
+        with open(self.env_file, "w") as file:
+            # Use a 4-space indent for readability and separators to remove extra spaces between elements
+            json.dump(data, file, indent=4, separators=(',', ': '))
+            
     def is_valid_move(self, new_pos):
         """
         @brief Checks if the move is valid
@@ -130,9 +151,21 @@ class GridEnv:
             else:
                 self.obstacles.add((row, col))  # Add obstacle
 
+    def set_target(self, pos):
+        """
+        @brief Sets the target position (highlighted in light green)
+
+        @param pos (x, y) screen coordinates of the target position
+        """
+        col = pos[0] // self.cell_size
+        row = pos[1] // self.cell_size
+
+        if 0 <= row < self.rows and 0 <= col < self.cols:
+            self.target = (row, col)
+
     def render(self):
         """
-        @brief Renders the grid environment, including agents, obstacles, and the goal
+        @brief Renders the grid environment, including agents, obstacles, and the target
         """
         self.screen.fill(WHITE)
         
@@ -157,6 +190,12 @@ class GridEnv:
         pursuer_y = self.pursuer[0] * self.cell_size + self.cell_size // 2
         pygame.draw.circle(self.screen, RED, (pursuer_x, pursuer_y), self.cell_size // 2 - 5)
 
+        # Draw the target (light green)
+        if self.target:
+            target_x = self.target[1] * self.cell_size + self.cell_size // 2
+            target_y = self.target[0] * self.cell_size + self.cell_size // 2
+            pygame.draw.circle(self.screen, LIGHTGREEN, (target_x, target_y), self.cell_size // 2 - 5)
+
         # Draw the Save Environment button
         pygame.draw.rect(self.screen, GREEN, self.save_button_rect, border_radius=10)
         pygame.draw.rect(self.screen, BLACK, self.save_button_rect, width=2, border_radius=10) 
@@ -173,13 +212,13 @@ class GridEnv:
 
     def run(self):
         """
-        @brief Runs the environment with two modes:
+        @brief Runs the environment with three modes:
             - Obstacle Editing Mode (click to place/remove obstacles)
+            - Target Editing Mode (click to set target)
             - Agent Movement Mode (move agents)
-            - Press "M" to switch between modes.
         """
         running = True
-        edit_mode = True  # Start in obstacle editing mode
+        mode = "obstacle"  # Start in obstacle editing mode
 
         while running:
             self.clock.tick(10)
@@ -189,18 +228,28 @@ class GridEnv:
                     running = False
 
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_m:  # Press "M" to switch modes
-                        edit_mode = not edit_mode
-                        logging.info("Switched Mode:", "Obstacle Editing" if edit_mode else "Agent Movement")
+                    if event.key == pygame.K_1:  # Press "1" for obstacle editing mode
+                        mode = "obstacle"
+                        logging.info("Switched Mode: Obstacle Editing")
+                    elif event.key == pygame.K_2:  # Press "2" for target editing mode
+                        mode = "target"
+                        logging.info("Switched Mode: Target Editing")
+                    elif event.key == pygame.K_3:  # Press "3" for agent movement mode
+                        mode = "agent"
+                        logging.info("Switched Mode: Agent Movement")
 
-                if edit_mode:  # Obstacle Editing Mode
-                    if event.type == pygame.MOUSEBUTTONDOWN:
-                        if self.save_button_rect.collidepoint(event.pos):
-                            self.save_environment()
-                            logging.info("Environment saved successfully!")
-                        else:
-                            self.toggle_obstacle(event.pos)
-                else:  # Agent Movement Mode
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    # Check if the click is inside the Save Environment button
+                    if self.save_button_rect.collidepoint(event.pos):
+                        self.save_environment()
+                        logging.info("Environment saved successfully!")
+                    
+                    elif mode == "obstacle":  # Obstacle Editing Mode
+                        self.toggle_obstacle(event.pos)
+                    elif mode == "target":  # Target Editing Mode
+                        self.set_target(event.pos)
+
+                if mode == "agent":  # Agent Movement Mode
                     if event.type == pygame.KEYDOWN:
                         key_map = {
                             pygame.K_w: "north", pygame.K_s: "south",
@@ -221,5 +270,5 @@ class GridEnv:
 
 # main
 if __name__ == "__main__":
-    env = GridEnv()
+    env = GridEnv(env_file="environment.json")  # Load the environment from a JSON file
     env.run()
