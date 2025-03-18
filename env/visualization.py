@@ -189,7 +189,7 @@ class GridEnv:
         if 0 <= row < self.rows and 0 <= col < self.cols:
             self.target = (row, col)
     
-    def save_image(self, filename="gridworld_1.png"):
+    def save_image(self, filename="gridworld_2.png"):
         """
         @brief Saves the current Pygame screen as an image file.
         @param filename The name of the image file to save
@@ -203,31 +203,31 @@ class GridEnv:
         """
         self.screen.fill(WHITE)
         
-        # Draw the grid with inverted y-axis
+    # Draw the grid 
         for row in range(self.rows):
             for col in range(self.cols):
-                rect = pygame.Rect(col * self.cell_size, (self.rows - row - 1) * self.cell_size, self.cell_size, self.cell_size)
+                rect = pygame.Rect(col * self.cell_size, row * self.cell_size, self.cell_size, self.cell_size)  
                 pygame.draw.rect(self.screen, GRAY, rect, 1)
-        
-        # Draw obstacles with inverted y-axis
+
+        # Draw obstacles 
         for obs in self.obstacles:
-            obs_rect = pygame.Rect(obs[1] * self.cell_size, (self.rows - obs[0] - 1) * self.cell_size, self.cell_size, self.cell_size)
+            obs_rect = pygame.Rect(obs[1] * self.cell_size, obs[0] * self.cell_size, self.cell_size, self.cell_size)  
             pygame.draw.rect(self.screen, BLACK, obs_rect)
 
-        # Draw the evader with inverted y-axis
+        # Draw the evader 
         evader_x = self.evader[1] * self.cell_size + self.cell_size // 2
-        evader_y = (self.rows - self.evader[0] - 1) * self.cell_size + self.cell_size // 2
+        evader_y = self.evader[0] * self.cell_size + self.cell_size // 2  
         pygame.draw.circle(self.screen, BLUE, (evader_x, evader_y), self.cell_size // 2 - 5)
 
-        # Draw the pursuer with inverted y-axis
+        # Draw the pursuer 
         pursuer_x = self.pursuer[1] * self.cell_size + self.cell_size // 2
-        pursuer_y = (self.rows - self.pursuer[0] - 1) * self.cell_size + self.cell_size // 2
+        pursuer_y = self.pursuer[0] * self.cell_size + self.cell_size // 2  
         pygame.draw.circle(self.screen, RED, (pursuer_x, pursuer_y), self.cell_size // 2 - 5)
 
-        # Draw the target (light green) with inverted y-axis
+        # Draw the target (light green) 
         if self.target:
             target_x = self.target[1] * self.cell_size + self.cell_size // 2
-            target_y = (self.rows - self.target[0] - 1) * self.cell_size + self.cell_size // 2
+            target_y = self.target[0] * self.cell_size + self.cell_size // 2  
             pygame.draw.circle(self.screen, LIGHTGREEN, (target_x, target_y), self.cell_size // 2 - 5)
 
         # Draw the Save Environment button
@@ -306,5 +306,5 @@ class GridEnv:
 
 # main
 if __name__ == "__main__":
-    env = GridEnv(env_file="gridworld_1.csv")  # Load the environment from a CSV file
+    env = GridEnv(env_file="gridworld_2.csv")  # Load the environment from a CSV file
     env.run()

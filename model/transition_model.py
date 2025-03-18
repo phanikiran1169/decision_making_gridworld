@@ -114,7 +114,7 @@ class ObjectTransitionModel(pomdp_py.TransitionModel):
         
         if path:
             # If a path is found, move to the next position in the path with some randomness
-            if random.random() < 0.60:
+            if random.random() < 0.40:
                 next_obj_state["pose"] = current_pos
             else:
                 next_obj_state["pose"] = path[0]

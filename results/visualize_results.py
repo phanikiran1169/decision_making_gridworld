@@ -163,7 +163,7 @@ class GridGifRenderer:
 
 if __name__ == "__main__":
     # Folder containing the CSV files for all runs
-    results_folder = "gridworld_1"
+    results_folder = "gridworld_2"
 
     # Loop through all CSV files in the folder and generate GIFs
     for filename in os.listdir(results_folder):

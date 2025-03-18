@@ -137,7 +137,7 @@ class GridWorldPOMDP(pomdp_py.OOPOMDP):
             name="MOS(%d,%d,%d)" % (env.width, env.length, len(env.target_objects)),
         )
 
-def simulate(problem, run_number, max_steps=100, planning_time=0.5, max_time=120, visualize=False, results_folder="results/gridworld_1"):
+def simulate(problem, run_number, max_steps=100, planning_time=0.5, max_time=120, visualize=False, results_folder="results/gridworld_2"):
     """
     Runs the simulation loop for the GridWorld POMDP.
 
@@ -181,7 +181,7 @@ def simulate(problem, run_number, max_steps=100, planning_time=0.5, max_time=120
         writer.writerow(header)
 
         # Get initial environment settings and save them
-        grid_size, evader_pose, pursuer_pose, target_pose, obstacles = load_environment_from_csv('env/gridworld_1.csv')
+        grid_size, evader_pose, pursuer_pose, target_pose, obstacles = load_environment_from_csv('env/gridworld_2.csv')
 
         # Write grid size and initial positions in the first row
         initial_row = [
@@ -289,7 +289,7 @@ def simulate(problem, run_number, max_steps=100, planning_time=0.5, max_time=120
 
 if __name__ == '__main__':
     # Load the environment from the CSV file
-    grid_size, evader_pose, pursuer_pose, target_pose, obstacles = load_environment_from_csv('env/gridworld_1.csv')
+    grid_size, evader_pose, pursuer_pose, target_pose, obstacles = load_environment_from_csv('env/gridworld_2.csv')
     logging.debug(f"grid_size - {grid_size}")
     logging.debug(f"evader_pose - {evader_pose}")
     logging.debug(f"pursuer_pose - {pursuer_pose}")
@@ -298,6 +298,6 @@ if __name__ == '__main__':
     
     problem = GridWorldPOMDP(grid_size, evader_pose, pursuer_pose, target_pose, obstacles)
 
-    # Run the simulation 100 times and save results in the gridworld_1 folder
+    # Run the simulation 100 times and save results in the gridworld_2 folder
     for run_number in range(1, 101):
         simulate(problem, run_number)
