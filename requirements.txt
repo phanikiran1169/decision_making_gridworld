@@ -2,3 +2,5 @@ pygame
 pomdp_py
 logger
 colorlog
+pillow
+csv

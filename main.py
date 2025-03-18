@@ -249,7 +249,7 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
 
 if __name__ == '__main__':
     # Load the environment from the JSON file
-    grid_size, evader_pose, pursuer_pose, target_pose, obstacles = load_environment_from_csv('env/environment.csv')
+    grid_size, evader_pose, pursuer_pose, target_pose, obstacles = load_environment_from_csv('env/gridworld.csv')
     logging.debug(f"grid_size - {grid_size}")
     logging.debug(f"evader_pose - {evader_pose}")
     logging.debug(f"pursuer_pose - {pursuer_pose}")

@@ -296,5 +296,5 @@ class GridEnv:
 
 # main
 if __name__ == "__main__":
-    env = GridEnv(env_file="environment.csv")  # Load the environment from a JSON file
+    env = GridEnv(env_file="gridworld.csv")  # Load the environment from a CSV file
     env.run()
