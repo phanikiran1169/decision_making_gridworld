@@ -2,6 +2,7 @@ import logging
 import argparse
 import colorlog
 import json
+import csv
 import os
 import pomdp_py
 from domain.state import RobotState, ObjectState, MosOOState
@@ -98,7 +99,6 @@ class GridWorldPOMDP(pomdp_py.OOPOMDP):
         self.target = {self.target_id: ObjectState(self.target_id, "target", target_pose)}
 
         # Define the obstacles
-        # self.objects = {self.evader_id: self.robots[self.evader_id], self.pursuer_id: self.pursuer[self.pursuer_id], self.target_id: self.target[self.target_id]}
         self.obstacles = obstacles
 
         # Initialize sensors
@@ -155,75 +155,95 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
         os.makedirs(results_folder)
 
     # Prepare the results list to store poses at each step
-    results = {
-        "grid_size": [problem.env.width,  problem.env.length],
-        "obstacles": [obstacle.pose for obstacle in problem.env.state.object_states.values() if isinstance(obstacle, ObjectState) and obstacle.objclass == "obstacle"],
-        "target": problem.env.state.object_states[problem.target_id].pose,  # Target pose
-        "steps": []
-    }
+    results_file = os.path.join(results_folder, "simulation_results.csv")
+    
+    # Define CSV header
+    header = [
+        "Step", 
+        "Evader X", "Evader Y", 
+        "Pursuer X", "Pursuer Y", 
+        "Target X", "Target Y"
+    ]
+    
+    # Get the obstacles data (each as Xn, Yn)
+    obstacles = []
+    for idx, obs in enumerate(problem.env.state.object_states.values()):
+        if isinstance(obs, ObjectState) and obs.objclass == "obstacle":
+            obstacles.append(f"Obstacle{idx+1} X")
+            obstacles.append(f"Obstacle{idx+1} Y")
+    
+    header.extend(obstacles)
 
-    planner = pomdp_py.POUCT(
-        max_depth=10,
-        discount_factor=0.99,
-        planning_time=planning_time,
-        exploration_const=100,
-        rollout_policy=problem.agent.policy_model
-    )
+    # Initialize CSV file and write header
+    with open(results_file, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(header)
 
-    total_reward = 0
-    robot_id = problem.agent.robot_id
+        planner = pomdp_py.POUCT(
+            max_depth=10,
+            discount_factor=0.99,
+            planning_time=planning_time,
+            exploration_const=100,
+            rollout_policy=problem.agent.policy_model
+        )
 
-    for step in range(max_steps):
-        logging.info(f"\n[STEP {step+1}] ------------------------")
+        total_reward = 0
+        robot_id = problem.agent.robot_id
 
-        # Plan once using POUCT
-        action = planner.plan(problem.agent)
+        for step in range(max_steps):
+            logging.info(f"\n[STEP {step+1}] ------------------------")
 
-        # Execute state transition ONCE
-        reward = problem.env.state_transition(action, execute=True, robot_id=robot_id, pursuer_id=problem.pursuer_id)
-        total_reward += reward
+            # Plan once using POUCT
+            action = planner.plan(problem.agent)
 
-        # Get observation and update belief
-        logging.info(f"Get observation and update current belief")
-        observation = problem.env.provide_observation(problem.agent.observation_model, action)
-        problem.agent.clear_history()
-        problem.agent.update_history(action, observation)
-        planner.update(problem.agent, action, observation)
+            # Execute state transition ONCE
+            reward = problem.env.state_transition(action, execute=True, robot_id=robot_id, pursuer_id=problem.pursuer_id)
+            total_reward += reward
 
-        logging.info(f"Action Taken: {action}")
-        logging.info(f"Observation Received: {observation}")
-        logging.info(f"Reward Gained: {reward}")
-        logging.info(f"Total Reward: {total_reward}")
-        logging.info(f"Current state - {problem.env.cur_state}")
+            # Get observation and update belief
+            logging.info(f"Get observation and update current belief")
+            observation = problem.env.provide_observation(problem.agent.observation_model, action)
+            problem.agent.clear_history()
+            problem.agent.update_history(action, observation)
+            planner.update(problem.agent, action, observation)
 
-        evader_pose = problem.env.state.object_states[problem.evader_id].pose
-        pursuer_pose = problem.env.state.object_states[problem.pursuer_id].pose
-        target_pose = problem.env.state.object_states[problem.target_id].pose
+            logging.info(f"Action Taken: {action}")
+            logging.info(f"Observation Received: {observation}")
+            logging.info(f"Reward Gained: {reward}")
+            logging.info(f"Total Reward: {total_reward}")
+            logging.info(f"Current state - {problem.env.cur_state}")
 
-        # Store the dynamic poses for each step
-        results["steps"].append({
-            "step": step + 1,
-            "evader_pose": evader_pose,
-            "pursuer_pose": pursuer_pose,
-            "target_pose": target_pose
-        })
+            evader_pose = problem.env.state.object_states[problem.evader_id].pose
+            pursuer_pose = problem.env.state.object_states[problem.pursuer_id].pose
+            target_pose = problem.env.state.object_states[problem.target_id].pose
 
-        logging.info(f"Evader pose - {evader_pose}")
-        logging.info(f"Pursuer pose - {pursuer_pose}")
-        logging.info(f"Target pose - {target_pose}")
-        
-        # Check terminal condition
-        if (evader_pose == target_pose):
-            logging.info("Goal reached! Ending simulation.")
-            break
-        if (pursuer_pose == evader_pose):
-            logging.info("Evader got caught! Ending simulation.")
-            break
+            # Collect obstacle poses
+            obstacle_poses = []
+            for obs in problem.env.state.object_states.values():
+                if isinstance(obs, ObjectState) and obs.objclass == "obstacle":
+                    obstacle_poses.extend(obs.pose)
 
-    # Save results to JSON file in the results folder
-    results_file = os.path.join(results_folder, "simulation_results.json")
-    with open(results_file, 'w') as file:
-        json.dump(results, file, indent=4)
+            # Write the data for this step
+            row = [
+                step + 1, 
+                evader_pose[0], evader_pose[1], 
+                pursuer_pose[0], pursuer_pose[1], 
+                target_pose[0], target_pose[1]
+            ]
+            row.extend(obstacle_poses)  # Add obstacle coordinates
+            writer.writerow(row)
+
+            logging.info(f"Evader pose - {evader_pose}")
+            logging.info(f"Pursuer pose - {pursuer_pose}")
+            logging.info(f"Target pose - {target_pose}")
+
+            # Check terminal condition
+            if (evader_pose == target_pose):
+                logging.info("Goal reached! Ending simulation.")
+                break
+            if (pursuer_pose == evader_pose):
+                logging.info("Evader got caught! Ending simulation.")
+                break
 
     logging.info(f"Simulation results saved to {results_file}")
 
