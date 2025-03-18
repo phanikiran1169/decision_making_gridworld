@@ -1,7 +1,6 @@
 import logging
 import argparse
 import colorlog
-import json
 import csv
 import os
 import pomdp_py
@@ -44,40 +43,40 @@ if args.enable_logs:
 else:
     logging.disable(logging.INFO)
 
-
-def load_environment_from_json(json_file):
-    """Loads environment details from a JSON file."""
+def load_environment_from_csv(csv_file):
+    """Loads environment details from a CSV file."""
     try:
-        with open(json_file, 'r') as file:
-            data = json.load(file)
-        
-        # Check that all necessary keys are in the loaded JSON
-        required_keys = ['grid_size', 'evader', 'pursuer', 'target', 'obstacles']
-        for key in required_keys:
-            if key not in data:
-                raise KeyError(f"Missing required key: {key} in JSON file.")
+        with open(csv_file, 'r') as file:
+            reader = csv.reader(file)
+            header = next(reader)  # Skip the header row
 
-        grid_size = (data['grid_size']['rows'], data['grid_size']['cols'])
-        evader_pose = tuple(data['evader'])
-        pursuer_pose = tuple(data['pursuer'])
-        target_pose = tuple(data['target'])
-        obstacles = {i + 1000: ObjectState(i + 1000, "obstacle", tuple(obs)) for i, obs in enumerate(data['obstacles'])}
+            # Read the data row
+            row = next(reader)
 
-        return grid_size, evader_pose, pursuer_pose, target_pose, obstacles
+            # Extract grid size (width and length)
+            grid_size = (int(row[0]), int(row[1]))
+
+            # Extract positions for evader, pursuer, and target
+            evader_pose = (int(row[2]), int(row[3]))
+            pursuer_pose = (int(row[4]), int(row[5]))
+            target_pose = (int(row[6]), int(row[7]))
+
+            # Extract obstacles dynamically
+            obstacles = {}
+            obstacle_index = 1000  # Start at 1000 for "Obstacle1 X", "Obstacle1 Y", ...
+            for i in range(8, len(row), 2):
+                if row[i] != '' and row[i+1] != '':
+                    obstacles[obstacle_index] = ObjectState(obstacle_index, "obstacle", (int(row[i]), int(row[i+1])))
+                    obstacle_index += 1
+
+            return grid_size, evader_pose, pursuer_pose, target_pose, obstacles
 
     except FileNotFoundError:
-        logging.error(f"File {json_file} not found.")
-        raise
-    except json.JSONDecodeError:
-        logging.error(f"Error decoding JSON from the file: {json_file}. Please check the file format.")
-        raise
-    except KeyError as e:
-        logging.error(f"Missing key in JSON file: {e}")
+        logging.error(f"File {csv_file} not found.")
         raise
     except Exception as e:
-        logging.error(f"An error occurred while loading the environment: {e}")
+        logging.error(f"An error occurred while loading the environment from CSV: {e}")
         raise
-
 
 class GridWorldPOMDP(pomdp_py.OOPOMDP):
     """
@@ -250,7 +249,7 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
 
 if __name__ == '__main__':
     # Load the environment from the JSON file
-    grid_size, evader_pose, pursuer_pose, target_pose, obstacles = load_environment_from_json('env/environment.json')
+    grid_size, evader_pose, pursuer_pose, target_pose, obstacles = load_environment_from_csv('env/environment.csv')
     logging.debug(f"grid_size - {grid_size}")
     logging.debug(f"evader_pose - {evader_pose}")
     logging.debug(f"pursuer_pose - {pursuer_pose}")
