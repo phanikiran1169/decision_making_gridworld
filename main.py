@@ -299,5 +299,5 @@ if __name__ == '__main__':
     problem = GridWorldPOMDP(grid_size, evader_pose, pursuer_pose, target_pose, obstacles)
 
     # Run the simulation 100 times and save results in the gridworld_1 folder
-    for run_number in range(1, 11):
+    for run_number in range(1, 101):
         simulate(problem, run_number)
