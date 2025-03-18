@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Folder containing the CSV result files
-results_folder = "gridworld_1"
+results_folder = "gridworld_1/prob_40"
 
 # Initialize variables to store predator (pursuer) and prey (evader) coordinates
 evader_positions = []
@@ -78,7 +78,7 @@ def generate_heatmaps():
     # Evader Heatmap
     plt.subplot(1, 2, 1)
     sns.heatmap(evader_heatmap, cmap="Blues", annot=False, cbar=True)
-    plt.title("Evader")
+    plt.title("Prey")
     plt.xlabel("X Position")
     plt.ylabel("Y Position")
     plt.gca().invert_yaxis()
@@ -88,7 +88,7 @@ def generate_heatmaps():
     # Pursuer Heatmap
     plt.subplot(1, 2, 2)
     sns.heatmap(pursuer_heatmap, cmap="Reds", annot=False, cbar=True)
-    plt.title("Pursuer")
+    plt.title("Predator")
     plt.xlabel("X Position")
     plt.ylabel("Y Position")
     plt.gca().invert_yaxis()
