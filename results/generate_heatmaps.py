@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Folder containing the CSV result files
-results_folder = "gridworld_1/prob_40"
+results_folder = "gridworld_1"
 
 # Initialize variables to store predator (pursuer) and prey (evader) coordinates
 evader_positions = []
