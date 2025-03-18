@@ -122,7 +122,7 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
         action = planner.plan(problem.agent)
 
         # Execute state transition ONCE
-        reward = problem.env.state_transition(action, execute=True, robot_id=robot_id)
+        reward = problem.env.state_transition(action, execute=True, robot_id=robot_id, chaser_id=1)
         total_reward += reward
 
         # Get observation and update belief
@@ -138,7 +138,8 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
         logging.info(f"Total Reward: {total_reward}")
         logging.info(f"Current state - {problem.env.cur_state}")
 
-        logging.info(f"Robot pose - {problem.env.state.object_states[robot_id].pose}")
+        logging.info(f"Evader pose - {problem.env.state.object_states[robot_id].pose}")
+        logging.info(f"Chaser pose - {problem.env.state.object_states[1].pose}")
         logging.info(f"Target pose - {problem.env.state.object_states[100].pose}")
         
         # Check terminal condition
