@@ -3,4 +3,5 @@ pomdp_py
 logger
 colorlog
 pillow
-csv
+matplotlib
+seaborn

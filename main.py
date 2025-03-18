@@ -137,28 +137,27 @@ class GridWorldPOMDP(pomdp_py.OOPOMDP):
             name="MOS(%d,%d,%d)" % (env.width, env.length, len(env.target_objects)),
         )
 
-
-def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=False, results_folder="results"):
+def simulate(problem, run_number, max_steps=100, planning_time=0.5, max_time=120, visualize=False, results_folder="results/gridworld_1"):
     """
     Runs the simulation loop for the GridWorld POMDP.
 
     Args:
         problem: GridWorldPOMDP instance
+        run_number: The current run number (used for folder naming)
         max_steps: Maximum number of steps for simulation
         planning_time: Time allowed for planning each step
         visualize: Whether to visualize each step (optional)
         results_folder: Folder to store the results
     """
     # Ensure the results folder exists
-    if not os.path.exists(results_folder):
-        os.makedirs(results_folder)
+    os.makedirs(results_folder, exist_ok=True)
 
-    # Prepare the results list to store poses at each step
-    results_file = os.path.join(results_folder, "simulation_results.csv")
+    # Prepare the results file in this run's folder
+    results_file = os.path.join(results_folder, f"simulation_results_run_{run_number}.csv")
     
     # Define CSV header
     header = [
-        "Step", 
+        "Grid Width", "Grid Length",  # Grid size in the first two columns
         "Evader X", "Evader Y", 
         "Pursuer X", "Pursuer Y", 
         "Target X", "Target Y"
@@ -172,11 +171,35 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
             obstacles.append(f"Obstacle{idx+1} Y")
     
     header.extend(obstacles)
+    
+    # Add pursuit success as a column to track each step
+    header.append("Pursuit Success")
 
     # Initialize CSV file and write header
     with open(results_file, 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(header)
+
+        # Get initial environment settings and save them
+        grid_size, evader_pose, pursuer_pose, target_pose, obstacles = load_environment_from_csv('env/gridworld_1.csv')
+
+        # Write grid size and initial positions in the first row
+        initial_row = [
+            grid_size[0], grid_size[1],
+            evader_pose[0], evader_pose[1], 
+            pursuer_pose[0], pursuer_pose[1], 
+            target_pose[0], target_pose[1]
+        ]
+        
+        # Add initial obstacle positions
+        for obs in obstacles.values():
+            initial_row.extend(obs.pose)
+        initial_row.append(False)
+        
+        writer.writerow(initial_row)
+
+        # Reinitialize the environment and agent for this simulation run
+        problem = GridWorldPOMDP(grid_size, evader_pose, pursuer_pose, target_pose, obstacles)
 
         planner = pomdp_py.POUCT(
             max_depth=10,
@@ -188,6 +211,7 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
 
         total_reward = 0
         robot_id = problem.agent.robot_id
+        pursuit_success = False
 
         for step in range(max_steps):
             logging.info(f"\n[STEP {step+1}] ------------------------")
@@ -221,17 +245,7 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
             for obs in problem.env.state.object_states.values():
                 if isinstance(obs, ObjectState) and obs.objclass == "obstacle":
                     obstacle_poses.extend(obs.pose)
-
-            # Write the data for this step
-            row = [
-                step + 1, 
-                evader_pose[0], evader_pose[1], 
-                pursuer_pose[0], pursuer_pose[1], 
-                target_pose[0], target_pose[1]
-            ]
-            row.extend(obstacle_poses)  # Add obstacle coordinates
-            writer.writerow(row)
-
+            
             logging.info(f"Evader pose - {evader_pose}")
             logging.info(f"Pursuer pose - {pursuer_pose}")
             logging.info(f"Target pose - {target_pose}")
@@ -239,17 +253,43 @@ def simulate(problem, max_steps=100, planning_time=0.5, max_time=120, visualize=
             # Check terminal condition
             if (evader_pose == target_pose):
                 logging.info("Goal reached! Ending simulation.")
+                pursuit_success = False
                 break
             if (pursuer_pose == evader_pose):
                 logging.info("Evader got caught! Ending simulation.")
+                pursuit_success = True
                 break
 
-    logging.info(f"Simulation results saved to {results_file}")
+            # Write the data for this step
+            row = [
+                grid_size[0], grid_size[1],
+                evader_pose[0], evader_pose[1], 
+                pursuer_pose[0], pursuer_pose[1], 
+                target_pose[0], target_pose[1]
+            ]
+            row.extend(obstacle_poses)  # Add obstacle coordinates
+            row.append(pursuit_success)  # Add pursuit success status at this step
+            
+            writer.writerow(row)
+        
+        # After the loop, ensure the last step is saved if the loop breaks early
+        if step < max_steps - 1:  # If the loop breaks early, we need to save the last state
+            row = [
+                grid_size[0], grid_size[1],
+                evader_pose[0], evader_pose[1], 
+                pursuer_pose[0], pursuer_pose[1], 
+                target_pose[0], target_pose[1]
+            ]
+            row.extend(obstacle_poses)  # Add obstacle coordinates
+            row.append(pursuit_success)  # Add pursuit success status at this step
+            
+            writer.writerow(row)
 
+        logging.info(f"Simulation results saved to {results_file}")
 
 if __name__ == '__main__':
-    # Load the environment from the JSON file
-    grid_size, evader_pose, pursuer_pose, target_pose, obstacles = load_environment_from_csv('env/gridworld.csv')
+    # Load the environment from the CSV file
+    grid_size, evader_pose, pursuer_pose, target_pose, obstacles = load_environment_from_csv('env/gridworld_1.csv')
     logging.debug(f"grid_size - {grid_size}")
     logging.debug(f"evader_pose - {evader_pose}")
     logging.debug(f"pursuer_pose - {pursuer_pose}")
@@ -258,4 +298,6 @@ if __name__ == '__main__':
     
     problem = GridWorldPOMDP(grid_size, evader_pose, pursuer_pose, target_pose, obstacles)
 
-    simulate(problem, max_steps=25, planning_time=0.5)
+    # Run the simulation 100 times and save results in the gridworld_1 folder
+    for run_number in range(1, 11):
+        simulate(problem, run_number)

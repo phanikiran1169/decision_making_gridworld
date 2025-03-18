@@ -2,6 +2,7 @@ import logging
 import pygame
 import csv
 import numpy as np
+import os
 from colors import *  # Import your color definitions
 from PIL import Image, ImageOps  # For saving and mirroring GIF
 
@@ -52,20 +53,22 @@ class GridGifRenderer:
                 header = next(reader)  # Read the header row
 
                 # Validate header format
-                if not header or len(header) < 7:
-                    raise ValueError("ERROR: CSV file format is incorrect. Expected at least 7 columns.")
+                if not header or len(header) < 8:  # We need at least 8 columns now
+                    raise ValueError("ERROR: CSV file format is incorrect. Expected at least 8 columns.")
 
                 self.steps = []  # Clear previous steps
 
                 for row in reader:
-                    if len(row) < 7:
-                        continue  # Ignore malformed rows
+                    if len(row) < 8:  # If row doesn't have enough columns, skip it
+                        continue
                     
+                    # Read the data from the row
                     step = {
-                        "evader": (int(row[1]), int(row[2])),
-                        "pursuer": (int(row[3]), int(row[4])),
-                        "target": (int(row[5]), int(row[6])),
-                        "obstacles": [(int(row[i]), int(row[i+1])) for i in range(7, len(row), 2)]
+                        "evader": (int(row[2]), int(row[3])),  # Evader position (updated index for new CSV format)
+                        "pursuer": (int(row[4]), int(row[5])),  # Pursuer position
+                        "target": (int(row[6]), int(row[7])),  # Target position
+                        "obstacles": [(int(row[i]), int(row[i+1])) for i in range(8, len(row)-1, 2)],  # Obstacles
+                        "pursuit_success": row[-1].strip() == "True"  # Read the Pursuit Success column
                     }
                     self.steps.append(step)
 
@@ -83,7 +86,7 @@ class GridGifRenderer:
                         [step["target"][1] for step in self.steps if step["target"]] + \
                         [obs[1] for step in self.steps for obs in step["obstacles"]]
 
-                self.rows = max(all_x) + 1 if all_x else 7  # Default to 7x7 if empty
+                self.rows = max(all_x) + 1 if all_x else 7
                 self.cols = max(all_y) + 1 if all_y else 7
 
         except FileNotFoundError:
@@ -159,8 +162,29 @@ class GridGifRenderer:
         logging.info("GIF generation complete.")
 
 if __name__ == "__main__":
-    env_file = "simulation_results.csv"  # Provide the CSV file
-    output_gif = "simulation.gif"  # Output GIF filename
+    # Folder containing the CSV files for all runs
+    results_folder = "gridworld_1"
 
-    renderer = GridGifRenderer(env_file, output_gif)
-    renderer.generate_gif()
+    # Loop through all CSV files in the folder and generate GIFs
+    for filename in os.listdir(results_folder):
+        if filename.endswith(".csv"):
+            file_path = os.path.join(results_folder, filename)
+            output_gif = os.path.join(results_folder, f"{filename.replace('.csv', '.gif')}")
+
+            if os.path.exists(file_path):
+                logging.info(f"Generating GIF for {file_path}...")
+                renderer = GridGifRenderer(file_path, output_gif)
+                renderer.generate_gif()
+            else:
+                logging.warning(f"File {file_path} does not exist, skipping.")
+
+    # for run_number in range(1, 3):
+    #     env_file = os.path.join(results_folder, f"simulation_results_run_{run_number}.csv")
+    #     output_gif = os.path.join(results_folder, f"simulation_run_{run_number}.gif")
+        
+    #     if os.path.exists(env_file):
+    #         logging.info(f"Generating GIF for {env_file}...")
+    #         renderer = GridGifRenderer(env_file, output_gif)
+    #         renderer.generate_gif()
+    #     else:
+    #         logging.warning(f"File {env_file} does not exist, skipping.")
