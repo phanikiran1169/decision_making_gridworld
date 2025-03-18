@@ -144,6 +144,7 @@ class GridGifRenderer:
         
         # Apply horizontal flip to all frames before saving
         pil_images = [ImageOps.mirror(img) for img in pil_images]
+        
 
         pil_images[0].save(self.output_gif, save_all=True, append_images=pil_images[1:], optimize=True, duration=250, loop=0)
         logging.info(f"Simulation saved as {self.output_gif}")
@@ -163,7 +164,7 @@ class GridGifRenderer:
 
 if __name__ == "__main__":
     # Folder containing the CSV files for all runs
-    results_folder = "gridworld_2"
+    results_folder = "gridworld_3"
 
     # Loop through all CSV files in the folder and generate GIFs
     for filename in os.listdir(results_folder):

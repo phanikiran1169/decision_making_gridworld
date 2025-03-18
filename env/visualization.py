@@ -189,7 +189,7 @@ class GridEnv:
         if 0 <= row < self.rows and 0 <= col < self.cols:
             self.target = (row, col)
     
-    def save_image(self, filename="gridworld_2.png"):
+    def save_image(self, filename="gridworld_3.png"):
         """
         @brief Saves the current Pygame screen as an image file.
         @param filename The name of the image file to save
@@ -306,5 +306,5 @@ class GridEnv:
 
 # main
 if __name__ == "__main__":
-    env = GridEnv(env_file="gridworld_2.csv")  # Load the environment from a CSV file
+    env = GridEnv(env_file="gridworld_3.csv")  # Load the environment from a CSV file
     env.run()
